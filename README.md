@@ -9,8 +9,7 @@ Este proyecto es una **reescritura desde cero** de un sistema RAG que ya fue val
 ## Tabla de contenidos
 
 - [Origen](#origen)
-- [Lecciones aprendidas](#lecciones-aprendidas)
-- [Objetivos de esta versión](#objetivos-de-esta-versión)
+- [Objetivos](#objetivos-de-esta-versión)
 - [Stack](#stack)
 - [Arquitectura](#arquitectura)
 - [Estructura del proyecto](#estructura-del-proyecto)
@@ -42,21 +41,7 @@ Los resultados están publicados en el artículo citado en [Investigación](#inv
 
 ---
 
-## Lecciones aprendidas
-
-El sistema anterior cumplió su objetivo, pero se construyó rápido y acumuló deuda técnica. Estos son los problemas que esta versión evita desde el diseño:
-
-- **Ingesta y consulta desalineadas.** La ingesta era un script suelto que generaba embeddings con un modelo distinto al usado en las consultas. → Un único servicio de embeddings compartido por ambos flujos, con la dimensión validada.
-- **Dependencias invertidas a medias.** La capa HTTP conocía las implementaciones concretas de la base de datos. → Los endpoints solo conocen casos de uso y las implementaciones se inyectan.
-- **Manejo de errores genérico.** `except Exception` en cada endpoint, exponiendo errores internos al cliente. → Excepciones tipadas y un manejador global con mensajes claros para el usuario final.
-- **Lógica de negocio mezclada.** Comandos especiales detectados con `if 'faq' in query` dentro del flujo RAG. → Responsabilidades separadas.
-- **I/O bloqueante en endpoints async.** → Acceso a datos realmente asíncrono.
-- **Sin tooling de calidad.** → Linting, formateo y tipado estático obligatorios desde el primer commit.
-- **Sin forma de verificar las fuentes ni de procesar documentos escaneados.** → Citas a la fuente en cada respuesta y OCR en el roadmap.
-
----
-
-## Objetivos de esta versión
+## Objetivos
 
 - Respuestas **fundamentadas** solo en la base de conocimiento, con **citas a la fuente**.
 - Pipeline de ingesta y recuperación **configurable y reemplazable** (modelos, chunking, vector store).
