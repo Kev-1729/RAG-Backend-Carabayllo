@@ -1,10 +1,10 @@
 .env
-.venv/
+*.log
 __pycache__/
-*.pyc
-.mypy_cache/
+.venv
 .ruff_cache/
-.idea/
-.vscode/
-*.exe
-*.txt
+.pytest_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
