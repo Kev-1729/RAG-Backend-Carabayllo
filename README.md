@@ -2,14 +2,14 @@
 
 Backend de un sistema **RAG (Retrieval-Augmented Generation)** para responder consultas en lenguaje natural usando como fuente una base de conocimiento documental propia, con respuestas fundamentadas y trazables a sus fuentes.
 
-Este proyecto es una **reescritura desde cero** de un sistema RAG que ya fue validado en producción y publicado en una investigación científica (ver [Origen](#origen)). Conserva el problema y las lecciones aprendidas. El stack, los modelos y el diseño son nuevos.
+Este proyecto es una **reescritura desde cero** de un sistema RAG que ya fue validado en producción y publicado en una investigación científica (ver [Origen](#origen)). Conserva el problema. El stack, los modelos y el diseño son nuevos.
 
 ---
 
 ## Tabla de contenidos
 
 - [Origen](#origen)
-- [Objetivos](#objetivos-de-esta-versión)
+- [Objetivos](#objetivos)
 - [Stack](#stack)
 - [Arquitectura](#arquitectura)
 - [Estructura del proyecto](#estructura-del-proyecto)
@@ -56,7 +56,7 @@ Los resultados están publicados en el artículo citado en [Investigación](#inv
 | --- | --- |
 | Lenguaje | Python 3.10+ |
 | Framework HTTP | FastAPI |
-| LLM | _Por definir_ |
+| LLM | claude-sonnet-5-5 |
 | Embeddings | _Por definir_ |
 | Vector store | _Por definir_ |
 | Persistencia | _Por definir_ |
@@ -75,7 +75,7 @@ El código se organiza en capas. **Las dependencias apuntan hacia adentro** y lo
 | `domain` | Entidades e interfaces (puertos). Python puro, sin frameworks ni SDKs. | Nada |
 | `application` | Casos de uso que orquestan el dominio. | `domain` |
 | `infrastructure` | Adaptadores concretos: LLM, embeddings, vector store, base de datos, loaders. | `domain`, `application` |
-| `interface` | API HTTP: routers, schemas e inyección de dependencias. | `application`, `domain` |
+| `interfaces` | API HTTP: routers, schemas e inyección de dependencias. | `application`, `domain` |
 
 ---
 
@@ -84,22 +84,27 @@ El código se organiza en capas. **Las dependencias apuntan hacia adentro** y lo
 ```
 rag/
 ├── src/
-│   ├── domain/
+│   ├── domain/            # entities, ports, exceptions
 │   ├── application/
+│   │   └── answer/        # caso de uso AnswerQuery
 │   ├── infrastructure/
-│   │   └── db/
-│   ├── interface/
+│   │   ├── db/
+│   │   └── llm/           # adaptador de Anthropic
+│   ├── interfaces/
 │   │   ├── routers/
+│   │   ├── schemas/
 │   │   └── dependencies/
 │   ├── config.py
 │   └── main.py
-├── test/
+├── tests/
+├── requeriments/
+│   ├── requirements.txt   # producción
+│   └── tests.txt          # desarrollo: lint, tipos, tests
 ├── .env.example
 ├── .pre-commit-config.yaml
 ├── docker-compose.yml
 ├── dockerfile
-├── pyproject.toml
-└── requirements.txt
+└── pyproject.toml
 ```
 
 ---
@@ -107,6 +112,7 @@ rag/
 ## Requisitos
 
 - Python 3.10+
+- API key de Anthropic creada **dentro de un workspace** ([platform.claude.com](https://platform.claude.com))
 - Docker y Docker Compose (opcional)
 
 ---
@@ -114,8 +120,8 @@ rag/
 ## Instalación
 
 ```bash
-git clone <url-del-repo>
-cd rag
+git clone https://github.com/Kev-1729/RAG-Backend-Carabayllo.git
+cd RAG-Backend-Carabayllo
 
 python -m venv .venv
 # Linux / macOS
@@ -123,7 +129,7 @@ source .venv/bin/activate
 # Windows (PowerShell)
 .venv\Scripts\Activate.ps1
 
-pip install -r requirements.txt
+pip install -r requeriments/tests.txt
 pre-commit install
 cp .env.example .env
 ```
@@ -134,21 +140,27 @@ cp .env.example .env
 
 Copia `.env.example` a `.env` y completa los valores. **Nunca subas `.env` al repositorio.**
 
-> La tabla de variables se documentará cuando se definan los proveedores.
+| Variable | Requerida | Descripción |
+| --- | --- | --- |
+| `ANTHROPIC_API_KEY` | Sí | API key de Anthropic (scoped a un workspace) |
+| `LLM_MODEL` | Sí | Modelo a usar, p. ej. `claude-sonnet-5-5` |
+| `CORS_ALLOW_ORIGINS` | No | Orígenes permitidos separados por coma |
 
 ---
 
 ## Ejecución
 
 ```bash
-# Local
 uvicorn src.main:app --reload --port 8000
-
-# Docker
-docker compose up --build
 ```
 
 Documentación interactiva: http://localhost:8000/docs
+
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "¿Qué necesito para sacar una licencia de funcionamiento?"}'
+```
 
 ---
 
@@ -156,9 +168,6 @@ Documentación interactiva: http://localhost:8000/docs
 
 ```bash
 pytest
-pytest -m unit
-pytest -m integration
-pytest -m "not slow"
 ```
 
 Los proveedores externos se mockean en los tests unitarios. Se exige una cobertura mínima del **80 %** sobre `src/application`.
@@ -182,7 +191,7 @@ pre-commit run --all-files
 
 ## Convenciones
 
-**Ramas**: `main` · `feat/*` · `fix/*` · `chore/*` · `refactor/*`
+**Ramas**: `main` · `feat/*` · `fix/*` · `chore/*` · `refactor/*` · `docs/*`
 
 **Commits**: [Conventional Commits](https://www.conventionalcommits.org/)
 
@@ -198,9 +207,10 @@ pre-commit run --all-files
 ## Roadmap
 
 - [x] Estructura base y tooling
-- [ ] Definir stack (LLM, embeddings, vector store)
-- [ ] Configuración con `pydantic-settings`
-- [ ] Dominio: entidades y puertos
+- [x] Configuración con `pydantic-settings`
+- [x] Dominio: entidades y puertos
+- [x] Endpoint de consulta conectado al LLM (sin retrieval)
+- [ ] Definir embeddings y vector store
 - [ ] Ingesta de documentos (PDF y otros formatos) con chunking configurable
 - [ ] OCR para documentos escaneados
 - [ ] Consulta RAG con citas a la fuente
@@ -215,7 +225,7 @@ pre-commit run --all-files
 
 ## Investigación
 
-> Collado, J., & Tupac-Agüero, K. (`<AÑO>`). _Efectos del uso de un Asistente Inteligente con RAG para el Acceso a Información y Consultas sobre Servicios Públicos: Un estudio de caso en Lima, Perú_. `<REVISTA>`. `<DOI>`
+> Collado, J., & Tupac-Agüero, K. (`2026`). _Efectos del uso de un Asistente Inteligente con RAG para el Acceso a Información y Consultas sobre Servicios Públicos: Un estudio de caso en Lima, Perú_.
 
 ---
 
