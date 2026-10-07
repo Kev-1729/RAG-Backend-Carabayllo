@@ -62,7 +62,7 @@ Los resultados están publicados en el artículo citado en [Investigación](#inv
 | Persistencia | _Por definir_ |
 | Contenedores | Docker + Docker Compose |
 | Testing | Pytest, pytest-asyncio, pytest-cov |
-| Calidad | Ruff, Black, isort, mypy, pre-commit |
+| Calidad | Ruff, mypy, pre-commit, GitHub Actions |
 
 ---
 
@@ -97,7 +97,7 @@ rag/
 │   ├── config.py
 │   └── main.py
 ├── tests/
-├── requeriments/
+├── requirements/
 │   ├── requirements.txt   # producción
 │   └── tests.txt          # desarrollo: lint, tipos, tests
 ├── .env.example
@@ -129,7 +129,7 @@ source .venv/bin/activate
 # Windows (PowerShell)
 .venv\Scripts\Activate.ps1
 
-pip install -r requeriments/tests.txt
+pip install -r requirements/tests.txt
 pre-commit install
 cp .env.example .env
 ```
@@ -182,10 +182,10 @@ pre-commit run --all-files
 
 | Herramienta | Uso |
 | --- | --- |
-| Ruff | Linter |
-| Black | Formateo (88 columnas) |
-| isort | Orden de imports |
+| Ruff | Linter, orden de imports y formateo (88 columnas) |
 | mypy | Tipado estático; toda función debe estar anotada |
+
+Estas mismas verificaciones, más `pytest`, corren en GitHub Actions en cada pull request.
 
 ---
 
@@ -219,7 +219,8 @@ pre-commit run --all-files
 - [ ] Evaluación automática del pipeline
 - [ ] Streaming de respuestas
 - [ ] Autenticación
-- [ ] CI/CD
+- [x] CI (GitHub Actions)
+- [ ] Despliegue (CD)
 
 ---
 
