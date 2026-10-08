@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     cors_allow_origins: str = ""
     anthropic_api_key: SecretStr
     llm_model: str
+    database_url: SecretStr
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
