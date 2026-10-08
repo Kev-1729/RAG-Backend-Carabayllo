@@ -16,12 +16,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-
 EMBEDDING_DIMENSION = 1024
 
 
 class Base(DeclarativeBase):
-    # Nombres de constraints predecibles para que las migraciones puedan referirlos.
     metadata = MetaData(
         naming_convention={
             "ix": "ix_%(table_name)s_%(column_0_N_name)s",
