@@ -16,6 +16,7 @@ Este proyecto es una **reescritura desde cero** de un sistema RAG que ya fue val
 - [Requisitos](#requisitos)
 - [Instalación](#instalación)
 - [Variables de entorno](#variables-de-entorno)
+- [Base de datos](#base-de-datos)
 - [Ejecución](#ejecución)
 - [Tests](#tests)
 - [Calidad de código](#calidad-de-código)
@@ -58,8 +59,8 @@ Los resultados están publicados en el artículo citado en [Investigación](#inv
 | Framework HTTP | FastAPI |
 | LLM | claude-sonnet-5-5 |
 | Embeddings | _Por definir_ |
-| Vector store | _Por definir_ |
-| Persistencia | _Por definir_ |
+| Vector store | PostgreSQL + pgvector (Supabase) |
+| Persistencia | SQLAlchemy async + asyncpg, migraciones con Alembic |
 | Contenedores | Docker + Docker Compose |
 | Testing | Pytest, pytest-asyncio, pytest-cov |
 | Calidad | Ruff, mypy, pre-commit, GitHub Actions |
@@ -88,7 +89,7 @@ rag/
 │   ├── application/
 │   │   └── answer/        # caso de uso AnswerQuery
 │   ├── infrastructure/
-│   │   ├── db/
+│   │   ├── db/            # modelos ORM
 │   │   └── llm/           # adaptador de Anthropic
 │   ├── interfaces/
 │   │   ├── routers/
@@ -96,12 +97,14 @@ rag/
 │   │   └── dependencies/
 │   ├── config.py
 │   └── main.py
+├── migrations/            # migraciones de Alembic
 ├── tests/
 ├── requirements/
 │   ├── requirements.txt   # producción
 │   └── tests.txt          # desarrollo: lint, tipos, tests
 ├── .env.example
 ├── .pre-commit-config.yaml
+├── alembic.ini
 ├── docker-compose.yml
 ├── dockerfile
 └── pyproject.toml
@@ -113,6 +116,7 @@ rag/
 
 - Python 3.10+
 - API key de Anthropic creada **dentro de un workspace** ([platform.claude.com](https://platform.claude.com))
+- Proyecto de [Supabase](https://supabase.com) (PostgreSQL con pgvector)
 - Docker y Docker Compose (opcional)
 
 ---
@@ -131,8 +135,11 @@ source .venv/bin/activate
 
 pip install -r requirements/tests.txt
 pre-commit install
-cp .env.example .env
+cp .env.example .env   # completa las variables (ver abajo)
+alembic upgrade head   # crea el esquema en tu base de datos
 ```
+
+Cada desarrollador usa su propio proyecto de Supabase. Después de un `git pull` que traiga migraciones nuevas, vuelve a ejecutar `alembic upgrade head`.
 
 ---
 
@@ -144,7 +151,37 @@ Copia `.env.example` a `.env` y completa los valores. **Nunca subas `.env` al re
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | Sí | API key de Anthropic (scoped a un workspace) |
 | `LLM_MODEL` | Sí | Modelo a usar, p. ej. `claude-sonnet-5-5` |
+| `DATABASE_URL` | Sí | Conexión a PostgreSQL. En Supabase: **Connect → Direct → Session pooler**, cambiando `postgresql://` por `postgresql+asyncpg://` y agregando `?ssl=require` |
 | `CORS_ALLOW_ORIGINS` | No | Orígenes permitidos separados por coma |
+
+---
+
+## Base de datos
+
+```mermaid
+erDiagram
+    documents ||--o{ chunks : "se divide en"
+```
+
+| Tabla | Propósito |
+| --- | --- |
+| `documents` | Un registro por PDF ingerido. El `sha256` del archivo evita ingerir el mismo documento dos veces. |
+| `chunks` | Fragmentos de cada documento con su página (para las citas) y su embedding (`vector(1024)`), indexado con HNSW para la búsqueda por similitud. |
+
+El detalle de columnas está en [`src/infrastructure/db/models.py`](src/infrastructure/db/models.py) y en [`migrations/versions/`](migrations/versions/). Todas las tablas tienen **RLS activado** para que la Data API de Supabase no pueda acceder a ellas; el backend se conecta directo a PostgreSQL.
+
+```bash
+alembic upgrade head                                  # aplica las migraciones pendientes
+alembic downgrade -1                                  # revierte la última
+alembic revision --autogenerate -m "descripción"      # crea una migración a partir de los modelos
+alembic check                                         # verifica que modelos y base estén sincronizados
+```
+
+**Reglas**
+
+- El esquema **nunca** se modifica desde el dashboard de Supabase: todo cambio es una migración nueva en un PR.
+- Las migraciones autogeneradas se revisan antes de commitear (extensiones y RLS se agregan a mano).
+- Una migración ya aplicada en otra base no se edita; se corrige con una nueva.
 
 ---
 
@@ -210,7 +247,7 @@ Estas mismas verificaciones, más `pytest`, corren en GitHub Actions en cada pul
 - [x] Configuración con `pydantic-settings`
 - [x] Dominio: entidades y puertos
 - [x] Endpoint de consulta conectado al LLM (sin retrieval)
-- [ ] Definir embeddings y vector store
+- [x] Base de datos: PostgreSQL + pgvector con migraciones (Alembic)
 - [ ] Ingesta de documentos (PDF y otros formatos) con chunking configurable
 - [ ] OCR para documentos escaneados
 - [ ] Consulta RAG con citas a la fuente
