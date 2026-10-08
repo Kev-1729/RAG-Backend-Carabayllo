@@ -2,3 +2,7 @@ fastapi>=0.100.0
 uvicorn>=0.23.0
 pydantic-settings>=2.1.0
 anthropic>=1.11
+sqlalchemy[asyncio]>=2.1
+asyncpg>=0.32
+pgvector>=0.5
+alembic>=1.20
