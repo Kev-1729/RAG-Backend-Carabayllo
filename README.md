@@ -161,12 +161,21 @@ Copia `.env.example` a `.env` y completa los valores. **Nunca subas `.env` al re
 ```mermaid
 erDiagram
     documents ||--o{ chunks : "se divide en"
+    documents |o--o{ documents : "reemplaza a"
+    conversations ||--o{ messages : "contiene"
+    messages ||--o| ratings : "recibe"
+    messages ||--o{ message_references : "cita"
+    chunks ||--o{ message_references : "es citado en"
 ```
 
 | Tabla | Propósito |
 | --- | --- |
-| `documents` | Un registro por PDF ingerido. El `sha256` del archivo evita ingerir el mismo documento dos veces. |
+| `documents` | Un registro por PDF ingerido. El `sha256` del archivo evita ingerir el mismo documento dos veces. Si una versión nueva lo reemplaza, se conserva y `superseded_by_id` apunta a la nueva. |
 | `chunks` | Fragmentos de cada documento con su página (para las citas) y su embedding (`vector(1024)`), indexado con HNSW para la búsqueda por similitud. |
+| `conversations` | Una fila por conversación. Agrupa los mensajes para la memoria conversacional. |
+| `messages` | Una fila por pregunta (`user`) o respuesta (`assistant`), en orden por `created_at`. Las respuestas pueden guardar modelo, tokens y latencia. |
+| `ratings` | Calificación de 1 a 5 estrellas de una respuesta. Opcional y una sola por respuesta. |
+| `message_references` | Chunks usados en cada respuesta, con su puesto (`rank`) y similitud (`score`), para mostrar las fuentes. |
 
 El detalle de columnas está en [`src/infrastructure/db/models.py`](src/infrastructure/db/models.py) y en [`migrations/versions/`](migrations/versions/). Todas las tablas tienen **RLS activado** para que la Data API de Supabase no pueda acceder a ellas; el backend se conecta directo a PostgreSQL.
 
@@ -182,6 +191,7 @@ alembic check                                         # verifica que modelos y b
 - El esquema **nunca** se modifica desde el dashboard de Supabase: todo cambio es una migración nueva en un PR.
 - Las migraciones autogeneradas se revisan antes de commitear (extensiones y RLS se agregan a mano).
 - Una migración ya aplicada en otra base no se edita; se corrige con una nueva.
+- Las claves foráneas usan `RESTRICT`: no se borran conversaciones con mensajes ni chunks que ya fueron citados.
 
 ---
 
