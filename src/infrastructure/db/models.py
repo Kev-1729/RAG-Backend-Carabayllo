@@ -6,9 +6,11 @@ from sqlalchemy import (
     CHAR,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     MetaData,
+    SmallInteger,
     Text,
     UniqueConstraint,
     func,
@@ -33,7 +35,10 @@ class Base(DeclarativeBase):
 
 class DocumentModel(Base):
     __tablename__ = "documents"
-    __table_args__ = (CheckConstraint("page_count > 0", name="page_count_positive"),)
+    __table_args__ = (
+        CheckConstraint("page_count > 0", name="page_count_positive"),
+        CheckConstraint("superseded_by_id <> id", name="not_superseded_by_itself"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         primary_key=True, server_default=text("gen_random_uuid()")
@@ -44,6 +49,9 @@ class DocumentModel(Base):
     page_count: Mapped[int]
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+    superseded_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("documents.id", ondelete="RESTRICT")
     )
 
 
@@ -69,3 +77,80 @@ class ChunkModel(Base):
     chunk_index: Mapped[int]
     content: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIMENSION))
+
+
+class ConversationModel(Base):
+    __tablename__ = "conversations"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class MessageModel(Base):
+    __tablename__ = "messages"
+    __table_args__ = (
+        CheckConstraint("role IN ('user', 'assistant')", name="role_valid"),
+        CheckConstraint("char_length(content) > 0", name="content_not_empty"),
+        CheckConstraint(
+            "role <> 'user' OR char_length(content) <= 2000",
+            name="question_max_length",
+        ),
+        CheckConstraint(
+            "role = 'assistant' OR (model IS NULL AND input_tokens IS NULL "
+            "AND output_tokens IS NULL AND latency_ms IS NULL)",
+            name="metrics_only_for_assistant",
+        ),
+        Index(
+            "ix_messages_conversation_id_created_at", "conversation_id", "created_at"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("conversations.id", ondelete="RESTRICT")
+    )
+    role: Mapped[str] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(Text)
+    model: Mapped[str | None] = mapped_column(Text)
+    input_tokens: Mapped[int | None]
+    output_tokens: Mapped[int | None]
+    latency_ms: Mapped[int | None]
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class RatingModel(Base):
+    __tablename__ = "ratings"
+    __table_args__ = (CheckConstraint("stars BETWEEN 1 AND 5", name="stars_range"),)
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("messages.id", ondelete="RESTRICT"), primary_key=True
+    )
+    stars: Mapped[int] = mapped_column(SmallInteger)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class MessageReferenceModel(Base):
+    __tablename__ = "message_references"
+    __table_args__ = (
+        UniqueConstraint("message_id", "rank"),
+        CheckConstraint("rank >= 1", name="rank_positive"),
+        Index("ix_message_references_chunk_id", "chunk_id"),
+    )
+
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("messages.id", ondelete="RESTRICT"), primary_key=True
+    )
+    chunk_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("chunks.id", ondelete="RESTRICT"), primary_key=True
+    )
+    rank: Mapped[int] = mapped_column(SmallInteger)
+    score: Mapped[float] = mapped_column(Float)
