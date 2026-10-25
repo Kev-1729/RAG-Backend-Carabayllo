@@ -6,3 +6,5 @@ sqlalchemy[asyncio]>=2.1
 asyncpg>=0.32
 pgvector>=0.5
 alembic>=1.20
+voyageai>=0.5
+pypdf>=6.0
