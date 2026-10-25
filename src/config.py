@@ -1,6 +1,6 @@
 from typing import Any, cast
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,10 +9,20 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr
     llm_model: str
     database_url: SecretStr
+    voyage_api_key: SecretStr
+    embedding_model: str = "voyage-4"
+    chunk_size: int = Field(default=1000, gt=0)
+    chunk_overlap: int = Field(default=200, ge=0)
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
+
+    @model_validator(mode="after")
+    def check_chunk_overlap(self) -> "Settings":
+        if self.chunk_overlap >= self.chunk_size:
+            raise ValueError("chunk_overlap must be smaller than chunk_size")
+        return self
 
     @property
     def parsed_cors_origins(self) -> list[str]:

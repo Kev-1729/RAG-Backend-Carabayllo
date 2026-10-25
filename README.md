@@ -58,7 +58,8 @@ Los resultados están publicados en el artículo citado en [Investigación](#inv
 | Lenguaje | Python 3.10+ |
 | Framework HTTP | FastAPI |
 | LLM | claude-sonnet-5-5 |
-| Embeddings | _Por definir_ |
+| Embeddings | Voyage AI (`voyage-4`, 1024 dimensiones) |
+| Lectura de PDF | pypdf |
 | Vector store | PostgreSQL + pgvector (Supabase) |
 | Persistencia | SQLAlchemy async + asyncpg, migraciones con Alembic |
 | Contenedores | Docker + Docker Compose |
@@ -87,11 +88,15 @@ rag/
 ├── src/
 │   ├── domain/            # entities, ports, exceptions
 │   ├── application/
-│   │   └── answer/        # caso de uso AnswerQuery
+│   │   ├── answer/        # caso de uso AnswerQuery
+│   │   └── ingest/        # caso de uso IngestDocuments y chunking
 │   ├── infrastructure/
-│   │   ├── db/            # modelos ORM
-│   │   └── llm/           # adaptador de Anthropic
+│   │   ├── db/            # modelos ORM y repositorio de documentos
+│   │   ├── embeddings/    # adaptador de Voyage AI
+│   │   ├── llm/           # adaptador de Anthropic
+│   │   └── pdf/           # lector de PDF (pypdf)
 │   ├── interfaces/
+│   │   ├── cli/           # comando de ingesta
 │   │   ├── routers/
 │   │   ├── schemas/
 │   │   └── dependencies/
@@ -153,6 +158,10 @@ Copia `.env.example` a `.env` y completa los valores. **Nunca subas `.env` al re
 | `LLM_MODEL` | Sí | Modelo a usar, p. ej. `claude-sonnet-5-5` |
 | `DATABASE_URL` | Sí | Conexión a PostgreSQL. En Supabase: **Connect → Direct → Session pooler**, cambiando `postgresql://` por `postgresql+asyncpg://` y agregando `?ssl=require` |
 | `CORS_ALLOW_ORIGINS` | No | Orígenes permitidos separados por coma |
+| `VOYAGE_API_KEY` | Sí | API key de Voyage AI ([dashboard.voyageai.com](https://dashboard.voyageai.com)). Sin método de pago el límite es de 3 peticiones por minuto |
+| `EMBEDDING_MODEL` | No | Modelo de embeddings. Por defecto `voyage-4`; debe generar vectores de 1024 dimensiones |
+| `CHUNK_SIZE` | No | Tamaño máximo de cada chunk en caracteres. Por defecto `1000` |
+| `CHUNK_OVERLAP` | No | Caracteres que se repiten entre chunks consecutivos. Por defecto `200`; debe ser menor que `CHUNK_SIZE` |
 
 ---
 
@@ -209,6 +218,14 @@ curl -X POST http://localhost:8000/query \
   -d '{"question": "¿Qué necesito para sacar una licencia de funcionamiento?"}'
 ```
 
+### Ingesta de documentos
+
+```bash
+python -m src.interfaces.cli.ingest "ruta/a/la/carpeta"
+```
+
+Lee los PDF de la carpeta, los divide en chunks, genera sus embeddings con Voyage AI y los guarda en `documents` y `chunks`. Los documentos ya ingeridos se omiten (por su `sha256`), y un PDF dañado se reporta sin detener el resto. Si Voyage alcanza su límite de peticiones, basta con volver a ejecutar el comando.
+
 ---
 
 ## Tests
@@ -258,7 +275,8 @@ Estas mismas verificaciones, más `pytest`, corren en GitHub Actions en cada pul
 - [x] Dominio: entidades y puertos
 - [x] Endpoint de consulta conectado al LLM (sin retrieval)
 - [x] Base de datos: PostgreSQL + pgvector con migraciones (Alembic)
-- [ ] Ingesta de documentos (PDF y otros formatos) con chunking configurable
+- [x] Ingesta de documentos PDF con chunking configurable
+- [ ] Ingesta de otros formatos
 - [ ] OCR para documentos escaneados
 - [ ] Consulta RAG con citas a la fuente
 - [ ] Memoria conversacional
