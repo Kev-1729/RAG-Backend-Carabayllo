@@ -2,33 +2,13 @@ import argparse
 import asyncio
 from pathlib import Path
 
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
-from src.application.ingest.ingest_documents import IngestDocuments, IngestionReport
-from src.config import settings
-from src.infrastructure.db.document_repository import SqlAlchemyDocumentRepository
-from src.infrastructure.db.models import EMBEDDING_DIMENSION
-from src.infrastructure.embeddings.voyage_embedder import VoyageEmbedder
-from src.infrastructure.pdf.pypdf_loader import PypdfLoader
+from src.application.ingest.ingest_documents import IngestionReport
+from src.container.ingest import ingest_documents
 
 
 async def ingest(folder: Path) -> IngestionReport:
-    engine = create_async_engine(settings.database_url.get_secret_value())
-    try:
-        use_case = IngestDocuments(
-            loader=PypdfLoader(),
-            embedder=VoyageEmbedder(
-                api_key=settings.voyage_api_key.get_secret_value(),
-                model=settings.embedding_model,
-                dimension=EMBEDDING_DIMENSION,
-            ),
-            repository=SqlAlchemyDocumentRepository(async_sessionmaker(engine)),
-            chunk_size=settings.chunk_size,
-            chunk_overlap=settings.chunk_overlap,
-        )
+    async with ingest_documents() as use_case:
         return await use_case.execute(sorted(folder.glob("*.pdf")))
-    finally:
-        await engine.dispose()
 
 
 def print_report(report: IngestionReport) -> None:
