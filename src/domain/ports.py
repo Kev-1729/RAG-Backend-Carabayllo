@@ -1,7 +1,6 @@
-from pathlib import Path
 from typing import Protocol
 
-from src.domain.entities import Chunk, Document
+from src.domain.entities import Chunk, Document, Page
 
 
 class LLM(Protocol):
@@ -9,7 +8,7 @@ class LLM(Protocol):
 
 
 class PdfLoader(Protocol):
-    def load(self, path: Path) -> Document: ...
+    def load(self, content: bytes) -> tuple[Page, ...]: ...
 
 
 class Embedder(Protocol):
