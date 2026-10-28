@@ -76,8 +76,11 @@ El código se organiza en capas. **Las dependencias apuntan hacia adentro** y lo
 | --- | --- | --- |
 | `domain` | Entidades e interfaces (puertos). Python puro, sin frameworks ni SDKs. | Nada |
 | `application` | Casos de uso que orquestan el dominio. | `domain` |
-| `infrastructure` | Adaptadores concretos: LLM, embeddings, vector store, base de datos, loaders. | `domain`, `application` |
-| `interfaces` | API HTTP: routers, schemas e inyección de dependencias. | `application`, `domain` |
+| `infrastructure` | Adaptadores concretos: LLM, embeddings, vector store, base de datos, loaders. | `domain` |
+| `container` | Raíz de composición: crea adaptadores, los inyecta en los casos de uso y administra recursos (p. ej. el engine). | `application`, `domain`, `infrastructure`, `config` |
+| `interfaces` | Adaptadores de entrada: API HTTP, CLI, schemas y el puente `Depends` de FastAPI. | `application`, `domain`, `container` |
+
+`container` centraliza la construcción de adaptadores y casos de uso. Los adaptadores de entrada obtienen desde allí los casos de uso ya configurados. `interfaces` no importa `infrastructure` ni `config`.
 
 ---
 
@@ -91,15 +94,16 @@ rag/
 │   │   ├── answer/        # caso de uso AnswerQuery
 │   │   └── ingest/        # caso de uso IngestDocuments y chunking
 │   ├── infrastructure/
-│   │   ├── db/            # modelos ORM y repositorio de documentos
+│   │   ├── db/            # conexión, modelos ORM y repositorio de documentos
 │   │   ├── embeddings/    # adaptador de Voyage AI
 │   │   ├── llm/           # adaptador de Anthropic
 │   │   └── pdf/           # lector de PDF (pypdf)
+│   ├── container/         # raíz de composición (arma casos de uso)
 │   ├── interfaces/
 │   │   ├── cli/           # comando de ingesta
 │   │   ├── routers/
 │   │   ├── schemas/
-│   │   └── dependencies/
+│   │   └── dependencies/  # puente FastAPI → container
 │   ├── config.py
 │   └── main.py
 ├── migrations/            # migraciones de Alembic
@@ -262,7 +266,9 @@ Estas mismas verificaciones, más `pytest`, corren en GitHub Actions en cada pul
 **Reglas de arquitectura**
 
 - `domain` no importa frameworks ni SDKs externos.
-- Los casos de uso reciben interfaces por constructor, nunca implementaciones.
+- Los casos de uso reciben sus dependencias por constructor, dependen de los puertos del dominio y no consultan `container`.
+- Solo `container` construye adaptadores concretos y los inyecta en los casos de uso.
+- `interfaces` no importa `infrastructure` ni `config`; obtiene los casos de uso desde `container`.
 - Los routers validan la entrada, llaman a un caso de uso y mapean la respuesta.
 - Ningún endpoint expone errores internos al cliente.
 
