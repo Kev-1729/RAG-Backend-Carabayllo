@@ -55,8 +55,8 @@ def tributos_loader() -> FakeLoader:
     return FakeLoader(
         {
             TRIBUTOS: (
-                Page(number=1, text="Requisitos para pagar."),
-                Page(number=2, text="Plazos de pago."),
+                Page(number=1, paragraphs=("Requisitos para pagar.",)),
+                Page(number=2, paragraphs=("Plazos de pago.",)),
             )
         }
     )
@@ -111,7 +111,7 @@ async def test_damaged_pdf_does_not_stop_the_rest() -> None:
 
 async def test_document_without_text_is_reported_as_failed() -> None:
     repository = FakeRepository()
-    loader = FakeLoader({EMPTY: (Page(number=1, text="   "),)})
+    loader = FakeLoader({EMPTY: (Page(number=1, paragraphs=()),)})
 
     report = await make_use_case(loader, repository).execute(
         [SourceFile(name="escaneado.pdf", content=EMPTY)]

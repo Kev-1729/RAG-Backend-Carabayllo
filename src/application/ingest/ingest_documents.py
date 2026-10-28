@@ -63,7 +63,11 @@ class IngestDocuments:
             pieces = [
                 (page.number, text)
                 for page in document.pages
-                for text in split_text(page.text, self._chunk_size, self._chunk_overlap)
+                for text in split_text(
+                    " ".join(page.paragraphs),
+                    self._chunk_size,
+                    self._chunk_overlap,
+                )
             ]
             if not pieces:
                 report.failed.append((document.file_name, "el PDF no tiene texto"))
