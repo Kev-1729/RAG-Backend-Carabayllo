@@ -2,13 +2,17 @@ import argparse
 import asyncio
 from pathlib import Path
 
-from src.application.ingest.ingest_documents import IngestionReport
+from src.application.ingest.ingest_documents import IngestionReport, SourceFile
 from src.container.ingest import ingest_documents
 
 
 async def ingest(folder: Path) -> IngestionReport:
+    files = [
+        SourceFile(name=path.name, content=path.read_bytes())
+        for path in sorted(folder.glob("*.pdf"))
+    ]
     async with ingest_documents() as use_case:
-        return await use_case.execute(sorted(folder.glob("*.pdf")))
+        return await use_case.execute(files)
 
 
 def print_report(report: IngestionReport) -> None:
