@@ -2,10 +2,9 @@ import argparse
 import asyncio
 from pathlib import Path
 
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
 from src.application.ingest.ingest_documents import IngestDocuments, IngestionReport
 from src.config import settings
+from src.infrastructure.db.database import create_engine, create_session_factory
 from src.infrastructure.db.document_repository import SqlAlchemyDocumentRepository
 from src.infrastructure.db.models import EMBEDDING_DIMENSION
 from src.infrastructure.embeddings.voyage_embedder import VoyageEmbedder
@@ -13,7 +12,7 @@ from src.infrastructure.pdf.pypdf_loader import PypdfLoader
 
 
 async def ingest(folder: Path) -> IngestionReport:
-    engine = create_async_engine(settings.database_url.get_secret_value())
+    engine = create_engine(settings.database_url.get_secret_value())
     try:
         use_case = IngestDocuments(
             loader=PypdfLoader(),
@@ -22,7 +21,7 @@ async def ingest(folder: Path) -> IngestionReport:
                 model=settings.embedding_model,
                 dimension=EMBEDDING_DIMENSION,
             ),
-            repository=SqlAlchemyDocumentRepository(async_sessionmaker(engine)),
+            repository=SqlAlchemyDocumentRepository(create_session_factory(engine)),
             chunk_size=settings.chunk_size,
             chunk_overlap=settings.chunk_overlap,
         )
