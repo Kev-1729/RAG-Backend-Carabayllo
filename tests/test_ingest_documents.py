@@ -2,7 +2,7 @@ import hashlib
 
 from src.application.ingest.ingest_documents import IngestDocuments, SourceFile
 from src.domain.entities import Chunk, Document, Page
-from src.domain.exceptions import InvalidDocumentError
+from src.domain.exceptions import InvalidChunkingError, InvalidDocumentError
 
 DAMAGED = b"damaged"
 EMPTY = b"empty-pdf"
@@ -45,10 +45,24 @@ class FakeRepository:
         self.saved_titles[document.file_name] = document.title
 
 
-def make_use_case(loader: FakeLoader, repository: FakeRepository) -> IngestDocuments:
-    return IngestDocuments(
-        loader, FakeEmbedder(), repository, chunk_size=100, chunk_overlap=20
-    )
+class FakeChunker:
+    async def split(self, pages: tuple[Page, ...]) -> list[tuple[int, str]]:
+        return [
+            (page.number, paragraph) for page in pages for paragraph in page.paragraphs
+        ]
+
+
+class FailingChunker:
+    async def split(self, pages: tuple[Page, ...]) -> list[tuple[int, str]]:
+        raise InvalidChunkingError("el modelo no devolvió grupos de párrafos válidos")
+
+
+def make_use_case(
+    loader: FakeLoader,
+    repository: FakeRepository,
+    chunker: FakeChunker | FailingChunker | None = None,
+) -> IngestDocuments:
+    return IngestDocuments(loader, FakeEmbedder(), repository, chunker or FakeChunker())
 
 
 def tributos_loader() -> FakeLoader:
@@ -132,3 +146,17 @@ async def test_title_comes_from_file_name() -> None:
     assert repository.saved_titles["Licencia_Funcionamiento.pdf"] == (
         "Licencia Funcionamiento"
     )
+
+
+async def test_invalid_chunking_does_not_stop_the_rest() -> None:
+    repository = FakeRepository()
+    loader = tributos_loader()
+
+    report = await make_use_case(loader, repository, FailingChunker()).execute(
+        [SourceFile(name="tributos.pdf", content=TRIBUTOS)]
+    )
+
+    assert report.failed == [
+        ("tributos.pdf", "el modelo no devolvió grupos de párrafos válidos")
+    ]
+    assert repository.saved == {}

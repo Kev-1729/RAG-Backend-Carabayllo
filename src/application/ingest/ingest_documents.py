@@ -1,9 +1,9 @@
 import hashlib
 from dataclasses import dataclass, field
+from typing import Protocol
 
-from src.application.ingest.chunking import split_text
-from src.domain.entities import Chunk, Document
-from src.domain.exceptions import InvalidDocumentError
+from src.domain.entities import Chunk, Document, Page
+from src.domain.exceptions import InvalidChunkingError, InvalidDocumentError
 from src.domain.ports import DocumentRepository, Embedder, PdfLoader
 
 
@@ -20,6 +20,10 @@ class IngestionReport:
     failed: list[tuple[str, str]] = field(default_factory=list)
 
 
+class ParagraphChunker(Protocol):
+    async def split(self, pages: tuple[Page, ...]) -> list[tuple[int, str]]: ...
+
+
 def _title_from_name(name: str) -> str:
     stem = name.rsplit(".", 1)[0] if "." in name else name
     return stem.replace("_", " ")
@@ -31,14 +35,12 @@ class IngestDocuments:
         loader: PdfLoader,
         embedder: Embedder,
         repository: DocumentRepository,
-        chunk_size: int,
-        chunk_overlap: int,
+        chunker: ParagraphChunker,
     ) -> None:
         self._loader = loader
         self._embedder = embedder
         self._repository = repository
-        self._chunk_size = chunk_size
-        self._chunk_overlap = chunk_overlap
+        self._chunker = chunker
 
     async def execute(self, files: list[SourceFile]) -> IngestionReport:
         report = IngestionReport()
@@ -60,15 +62,11 @@ class IngestDocuments:
                 sha256=sha256,
                 pages=pages,
             )
-            pieces = [
-                (page.number, text)
-                for page in document.pages
-                for text in split_text(
-                    " ".join(page.paragraphs),
-                    self._chunk_size,
-                    self._chunk_overlap,
-                )
-            ]
+            try:
+                pieces = await self._chunker.split(document.pages)
+            except InvalidChunkingError as error:
+                report.failed.append((source.name, str(error)))
+                continue
             if not pieces:
                 report.failed.append((document.file_name, "el PDF no tiene texto"))
                 continue
