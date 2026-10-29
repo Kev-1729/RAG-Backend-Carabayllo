@@ -13,9 +13,16 @@ class SourceFile:
     content: bytes
 
 
+@dataclass(frozen=True)
+class IngestedDocument:
+    name: str
+    pages: int
+    chunks: int
+
+
 @dataclass
 class IngestionReport:
-    ingested: list[str] = field(default_factory=list)
+    ingested: list[IngestedDocument] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
     failed: list[tuple[str, str]] = field(default_factory=list)
 
@@ -81,5 +88,11 @@ class IngestDocuments:
                 )
             ]
             await self._repository.save(document, chunks)
-            report.ingested.append(document.file_name)
+            report.ingested.append(
+                IngestedDocument(
+                    name=document.file_name,
+                    pages=document.page_count,
+                    chunks=len(chunks),
+                )
+            )
         return report

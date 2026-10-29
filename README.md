@@ -159,7 +159,7 @@ Copia `.env.example` a `.env` y completa los valores. **Nunca subas `.env` al re
 | Variable | Requerida | Descripción |
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | Sí | API key de Anthropic (scoped a un workspace) |
-| `LLM_MODEL` | Sí | Modelo a usar, p. ej. `claude-sonnet-5-5`. También agrupa párrafos en la ingesta |
+| `LLM_MODEL` | Sí | Modelo a usar, p. ej. `claude-sonnet-5-5` |
 | `DATABASE_URL` | Sí | Conexión a PostgreSQL. En Supabase: **Connect → Direct → Session pooler**, cambiando `postgresql://` por `postgresql+asyncpg://` y agregando `?ssl=require` |
 | `CORS_ALLOW_ORIGINS` | No | Orígenes permitidos separados por coma |
 | `VOYAGE_API_KEY` | Sí | API key de Voyage AI ([dashboard.voyageai.com](https://dashboard.voyageai.com)). Sin método de pago el límite es de 3 peticiones por minuto |
@@ -217,9 +217,9 @@ curl -X POST http://localhost:8000/query \
 python -m src.interfaces.cli.ingest "ruta/a/la/carpeta"
 ```
 
-Lee los PDF de la carpeta, extrae párrafos (pypdf en modo layout) y pide al LLM que los agrupe por significado. El modelo solo devuelve rangos JSON; el texto de cada chunk es el original. `CHUNK_SIZE` limita grupos de varios párrafos. Luego Voyage genera los embeddings y se guardan en `documents` y `chunks`.
+Lee los PDF de la carpeta, extrae párrafos (pypdf en modo layout) y pide al LLM que los agrupe por significado. El modelo solo devuelve rangos JSON; el texto de cada chunk es el original. Un chunk no cruza de página. `CHUNK_SIZE` limita grupos de varios párrafos de la misma página. Luego Voyage genera los embeddings y se guardan en `documents` y `chunks`.
 
-Los documentos ya ingeridos se omiten (por su `sha256`). Un PDF dañado o un agrupado inválido se reporta sin detener el resto. Si Voyage o el LLM no responden, el comando se detiene; al volver a correrlo se omiten los que ya estaban guardados.
+El reporte indica, por archivo ingerido, cuántas páginas y fragmentos quedaron. Los documentos ya ingeridos se omiten (por su `sha256`). Un archivo ilegible, un PDF dañado o un agrupado inválido se reporta sin detener el resto. Si Voyage o el LLM no responden, el comando se detiene; al volver a correrlo se omiten los que ya estaban guardados.
 
 Si cambias el chunking, el `sha256` no cambia: hay que vaciar `chunks` y `documents` en la base de desarrollo antes de reingerir.
 

@@ -84,7 +84,9 @@ async def test_ingests_new_document_with_one_chunk_per_page() -> None:
         [SourceFile(name="tributos.pdf", content=TRIBUTOS)]
     )
 
-    assert report.ingested == ["tributos.pdf"]
+    assert [(item.name, item.pages, item.chunks) for item in report.ingested] == [
+        ("tributos.pdf", 2, 2)
+    ]
     chunks = repository.saved["tributos.pdf"]
     assert [(c.page, c.index, c.content) for c in chunks] == [
         (1, 0, "Requisitos para pagar."),
@@ -120,7 +122,9 @@ async def test_damaged_pdf_does_not_stop_the_rest() -> None:
     )
 
     assert report.failed == [("danado.pdf", "PDF dañado")]
-    assert report.ingested == ["tributos.pdf"]
+    assert [(item.name, item.pages, item.chunks) for item in report.ingested] == [
+        ("tributos.pdf", 2, 2)
+    ]
 
 
 async def test_document_without_text_is_reported_as_failed() -> None:
