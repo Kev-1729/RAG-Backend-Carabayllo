@@ -7,18 +7,23 @@ from src.container.ingest import ingest_documents
 
 
 async def ingest(folder: Path) -> IngestionReport:
-    files = [
-        SourceFile(name=path.name, content=path.read_bytes())
-        for path in sorted(folder.glob("*.pdf"))
-    ]
+    files: list[SourceFile] = []
+    unreadable: list[tuple[str, str]] = []
+    for path in sorted(folder.glob("*.pdf")):
+        try:
+            files.append(SourceFile(name=path.name, content=path.read_bytes()))
+        except OSError as error:
+            unreadable.append((path.name, f"no se pudo leer el archivo: {error}"))
     async with ingest_documents() as use_case:
-        return await use_case.execute(files)
+        report = await use_case.execute(files)
+    report.failed.extend(unreadable)
+    return report
 
 
 def print_report(report: IngestionReport) -> None:
     print(f"Ingeridos: {len(report.ingested)}")
-    for name in report.ingested:
-        print(f"  + {name}")
+    for item in report.ingested:
+        print(f"  + {item.name} ({item.pages} páginas, {item.chunks} fragmentos)")
     print(f"Omitidos (ya existían): {len(report.skipped)}")
     for name in report.skipped:
         print(f"  = {name}")

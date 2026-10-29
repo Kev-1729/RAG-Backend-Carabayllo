@@ -8,3 +8,7 @@ class EmbeddingUnavailableError(Exception):
 
 class InvalidDocumentError(Exception):
     """El PDF no se pudo leer (dañado, protegido o sin texto)."""
+
+
+class InvalidChunkingError(Exception):
+    """El LLM no devolvió grupos de párrafos válidos."""

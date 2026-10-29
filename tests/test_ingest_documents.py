@@ -2,7 +2,7 @@ import hashlib
 
 from src.application.ingest.ingest_documents import IngestDocuments, SourceFile
 from src.domain.entities import Chunk, Document, Page
-from src.domain.exceptions import InvalidDocumentError
+from src.domain.exceptions import InvalidChunkingError, InvalidDocumentError
 
 DAMAGED = b"damaged"
 EMPTY = b"empty-pdf"
@@ -45,18 +45,32 @@ class FakeRepository:
         self.saved_titles[document.file_name] = document.title
 
 
-def make_use_case(loader: FakeLoader, repository: FakeRepository) -> IngestDocuments:
-    return IngestDocuments(
-        loader, FakeEmbedder(), repository, chunk_size=100, chunk_overlap=20
-    )
+class FakeChunker:
+    async def split(self, pages: tuple[Page, ...]) -> list[tuple[int, str]]:
+        return [
+            (page.number, paragraph) for page in pages for paragraph in page.paragraphs
+        ]
+
+
+class FailingChunker:
+    async def split(self, pages: tuple[Page, ...]) -> list[tuple[int, str]]:
+        raise InvalidChunkingError("el modelo no devolvió grupos de párrafos válidos")
+
+
+def make_use_case(
+    loader: FakeLoader,
+    repository: FakeRepository,
+    chunker: FakeChunker | FailingChunker | None = None,
+) -> IngestDocuments:
+    return IngestDocuments(loader, FakeEmbedder(), repository, chunker or FakeChunker())
 
 
 def tributos_loader() -> FakeLoader:
     return FakeLoader(
         {
             TRIBUTOS: (
-                Page(number=1, text="Requisitos para pagar."),
-                Page(number=2, text="Plazos de pago."),
+                Page(number=1, paragraphs=("Requisitos para pagar.",)),
+                Page(number=2, paragraphs=("Plazos de pago.",)),
             )
         }
     )
@@ -70,7 +84,9 @@ async def test_ingests_new_document_with_one_chunk_per_page() -> None:
         [SourceFile(name="tributos.pdf", content=TRIBUTOS)]
     )
 
-    assert report.ingested == ["tributos.pdf"]
+    assert [(item.name, item.pages, item.chunks) for item in report.ingested] == [
+        ("tributos.pdf", 2, 2)
+    ]
     chunks = repository.saved["tributos.pdf"]
     assert [(c.page, c.index, c.content) for c in chunks] == [
         (1, 0, "Requisitos para pagar."),
@@ -106,12 +122,14 @@ async def test_damaged_pdf_does_not_stop_the_rest() -> None:
     )
 
     assert report.failed == [("danado.pdf", "PDF dañado")]
-    assert report.ingested == ["tributos.pdf"]
+    assert [(item.name, item.pages, item.chunks) for item in report.ingested] == [
+        ("tributos.pdf", 2, 2)
+    ]
 
 
 async def test_document_without_text_is_reported_as_failed() -> None:
     repository = FakeRepository()
-    loader = FakeLoader({EMPTY: (Page(number=1, text="   "),)})
+    loader = FakeLoader({EMPTY: (Page(number=1, paragraphs=()),)})
 
     report = await make_use_case(loader, repository).execute(
         [SourceFile(name="escaneado.pdf", content=EMPTY)]
@@ -132,3 +150,17 @@ async def test_title_comes_from_file_name() -> None:
     assert repository.saved_titles["Licencia_Funcionamiento.pdf"] == (
         "Licencia Funcionamiento"
     )
+
+
+async def test_invalid_chunking_does_not_stop_the_rest() -> None:
+    repository = FakeRepository()
+    loader = tributos_loader()
+
+    report = await make_use_case(loader, repository, FailingChunker()).execute(
+        [SourceFile(name="tributos.pdf", content=TRIBUTOS)]
+    )
+
+    assert report.failed == [
+        ("tributos.pdf", "el modelo no devolvió grupos de párrafos válidos")
+    ]
+    assert repository.saved == {}

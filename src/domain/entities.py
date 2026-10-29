@@ -14,7 +14,7 @@ class Answer:
 @dataclass(frozen=True)
 class Page:
     number: int
-    text: str
+    paragraphs: tuple[str, ...]
 
 
 @dataclass(frozen=True)

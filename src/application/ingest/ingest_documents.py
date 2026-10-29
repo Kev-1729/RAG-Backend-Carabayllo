@@ -1,9 +1,9 @@
 import hashlib
 from dataclasses import dataclass, field
+from typing import Protocol
 
-from src.application.ingest.chunking import split_text
-from src.domain.entities import Chunk, Document
-from src.domain.exceptions import InvalidDocumentError
+from src.domain.entities import Chunk, Document, Page
+from src.domain.exceptions import InvalidChunkingError, InvalidDocumentError
 from src.domain.ports import DocumentRepository, Embedder, PdfLoader
 
 
@@ -13,11 +13,22 @@ class SourceFile:
     content: bytes
 
 
+@dataclass(frozen=True)
+class IngestedDocument:
+    name: str
+    pages: int
+    chunks: int
+
+
 @dataclass
 class IngestionReport:
-    ingested: list[str] = field(default_factory=list)
+    ingested: list[IngestedDocument] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
     failed: list[tuple[str, str]] = field(default_factory=list)
+
+
+class ParagraphChunker(Protocol):
+    async def split(self, pages: tuple[Page, ...]) -> list[tuple[int, str]]: ...
 
 
 def _title_from_name(name: str) -> str:
@@ -31,14 +42,12 @@ class IngestDocuments:
         loader: PdfLoader,
         embedder: Embedder,
         repository: DocumentRepository,
-        chunk_size: int,
-        chunk_overlap: int,
+        chunker: ParagraphChunker,
     ) -> None:
         self._loader = loader
         self._embedder = embedder
         self._repository = repository
-        self._chunk_size = chunk_size
-        self._chunk_overlap = chunk_overlap
+        self._chunker = chunker
 
     async def execute(self, files: list[SourceFile]) -> IngestionReport:
         report = IngestionReport()
@@ -60,11 +69,11 @@ class IngestDocuments:
                 sha256=sha256,
                 pages=pages,
             )
-            pieces = [
-                (page.number, text)
-                for page in document.pages
-                for text in split_text(page.text, self._chunk_size, self._chunk_overlap)
-            ]
+            try:
+                pieces = await self._chunker.split(document.pages)
+            except InvalidChunkingError as error:
+                report.failed.append((source.name, str(error)))
+                continue
             if not pieces:
                 report.failed.append((document.file_name, "el PDF no tiene texto"))
                 continue
@@ -79,5 +88,11 @@ class IngestDocuments:
                 )
             ]
             await self._repository.save(document, chunks)
-            report.ingested.append(document.file_name)
+            report.ingested.append(
+                IngestedDocument(
+                    name=document.file_name,
+                    pages=document.page_count,
+                    chunks=len(chunks),
+                )
+            )
         return report

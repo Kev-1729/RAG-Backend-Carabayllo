@@ -2,7 +2,9 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from src.application.ingest.ingest_documents import IngestDocuments
+from src.application.ingest.semantic_chunker import SemanticChunker
 from src.config import settings
+from src.container.llm import get_llm
 from src.infrastructure.db.database import create_engine, create_session_factory
 from src.infrastructure.db.document_repository import SqlAlchemyDocumentRepository
 from src.infrastructure.db.models import EMBEDDING_DIMENSION
@@ -22,8 +24,7 @@ async def ingest_documents() -> AsyncIterator[IngestDocuments]:
                 dimension=EMBEDDING_DIMENSION,
             ),
             repository=SqlAlchemyDocumentRepository(create_session_factory(engine)),
-            chunk_size=settings.chunk_size,
-            chunk_overlap=settings.chunk_overlap,
+            chunker=SemanticChunker(get_llm(), max_chars=settings.chunk_size),
         )
     finally:
         await engine.dispose()
