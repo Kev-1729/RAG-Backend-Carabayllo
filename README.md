@@ -92,7 +92,7 @@ rag/
 │   ├── domain/            # entities, ports, exceptions
 │   ├── application/
 │   │   ├── answer/        # caso de uso AnswerQuery
-│   │   └── ingest/        # caso de uso IngestDocuments y chunking
+│   │   └── ingest/        # IngestDocuments y chunking semántico
 │   ├── infrastructure/
 │   │   ├── db/            # conexión, modelos ORM y repositorio de documentos
 │   │   ├── embeddings/    # adaptador de Voyage AI
@@ -159,27 +159,16 @@ Copia `.env.example` a `.env` y completa los valores. **Nunca subas `.env` al re
 | Variable | Requerida | Descripción |
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | Sí | API key de Anthropic (scoped a un workspace) |
-| `LLM_MODEL` | Sí | Modelo a usar, p. ej. `claude-sonnet-5-5` |
+| `LLM_MODEL` | Sí | Modelo a usar, p. ej. `claude-sonnet-5-5`. También agrupa párrafos en la ingesta |
 | `DATABASE_URL` | Sí | Conexión a PostgreSQL. En Supabase: **Connect → Direct → Session pooler**, cambiando `postgresql://` por `postgresql+asyncpg://` y agregando `?ssl=require` |
 | `CORS_ALLOW_ORIGINS` | No | Orígenes permitidos separados por coma |
 | `VOYAGE_API_KEY` | Sí | API key de Voyage AI ([dashboard.voyageai.com](https://dashboard.voyageai.com)). Sin método de pago el límite es de 3 peticiones por minuto |
 | `EMBEDDING_MODEL` | No | Modelo de embeddings. Por defecto `voyage-4`; debe generar vectores de 1024 dimensiones |
-| `CHUNK_SIZE` | No | Tamaño máximo de cada chunk en caracteres. Por defecto `1000` |
-| `CHUNK_OVERLAP` | No | Caracteres que se repiten entre chunks consecutivos. Por defecto `200`; debe ser menor que `CHUNK_SIZE` |
+| `CHUNK_SIZE` | No | Tope en caracteres para un grupo de varios párrafos. Por defecto `1000`. Un párrafo solo no se corta |
 
 ---
 
 ## Base de datos
-
-```mermaid
-erDiagram
-    documents ||--o{ chunks : "se divide en"
-    documents |o--o{ documents : "reemplaza a"
-    conversations ||--o{ messages : "contiene"
-    messages ||--o| ratings : "recibe"
-    messages ||--o{ message_references : "cita"
-    chunks ||--o{ message_references : "es citado en"
-```
 
 | Tabla | Propósito |
 | --- | --- |
@@ -228,7 +217,11 @@ curl -X POST http://localhost:8000/query \
 python -m src.interfaces.cli.ingest "ruta/a/la/carpeta"
 ```
 
-Lee los PDF de la carpeta, los divide en chunks, genera sus embeddings con Voyage AI y los guarda en `documents` y `chunks`. Los documentos ya ingeridos se omiten (por su `sha256`), y un PDF dañado se reporta sin detener el resto. Si Voyage alcanza su límite de peticiones, basta con volver a ejecutar el comando.
+Lee los PDF de la carpeta, extrae párrafos (pypdf en modo layout) y pide al LLM que los agrupe por significado. El modelo solo devuelve rangos JSON; el texto de cada chunk es el original. `CHUNK_SIZE` limita grupos de varios párrafos. Luego Voyage genera los embeddings y se guardan en `documents` y `chunks`.
+
+Los documentos ya ingeridos se omiten (por su `sha256`). Un PDF dañado o un agrupado inválido se reporta sin detener el resto. Si Voyage o el LLM no responden, el comando se detiene; al volver a correrlo se omiten los que ya estaban guardados.
+
+Si cambias el chunking, el `sha256` no cambia: hay que vaciar `chunks` y `documents` en la base de desarrollo antes de reingerir.
 
 ---
 
@@ -281,7 +274,7 @@ Estas mismas verificaciones, más `pytest`, corren en GitHub Actions en cada pul
 - [x] Dominio: entidades y puertos
 - [x] Endpoint de consulta conectado al LLM (sin retrieval)
 - [x] Base de datos: PostgreSQL + pgvector con migraciones (Alembic)
-- [x] Ingesta de documentos PDF con chunking configurable
+- [x] Ingesta de documentos PDF con chunking semántico
 - [ ] Ingesta de otros formatos
 - [ ] OCR para documentos escaneados
 - [ ] Consulta RAG con citas a la fuente
