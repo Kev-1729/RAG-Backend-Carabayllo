@@ -173,7 +173,7 @@ Copia `.env.example` a `.env` y completa los valores. **Nunca subas `.env` al re
 | Tabla | Propósito |
 | --- | --- |
 | `documents` | Un registro por PDF ingerido. El `sha256` del archivo evita ingerir el mismo documento dos veces. Si una versión nueva lo reemplaza, se conserva y `superseded_by_id` apunta a la nueva. |
-| `chunks` | Fragmentos de cada documento con su página (para las citas) y su embedding (`vector(1024)`), indexado con HNSW para la búsqueda por similitud. |
+| `chunks` | Fragmentos de cada documento con su página inicial (para las citas) y su embedding (`vector(1024)`), indexado con HNSW para la búsqueda por similitud. |
 | `conversations` | Una fila por conversación. Agrupa los mensajes para la memoria conversacional. |
 | `messages` | Una fila por pregunta (`user`) o respuesta (`assistant`), en orden por `created_at`. Las respuestas pueden guardar modelo, tokens y latencia. |
 | `ratings` | Calificación de 1 a 5 estrellas de una respuesta. Opcional y una sola por respuesta. |
@@ -217,7 +217,7 @@ curl -X POST http://localhost:8000/query \
 python -m src.interfaces.cli.ingest "ruta/a/la/carpeta"
 ```
 
-Lee los PDF de la carpeta, extrae párrafos (pypdf en modo layout) y pide al LLM que los agrupe por significado. El modelo solo devuelve rangos JSON; el texto de cada chunk es el original. Un chunk no cruza de página. `CHUNK_SIZE` limita grupos de varios párrafos de la misma página. Luego Voyage genera los embeddings y se guardan en `documents` y `chunks`.
+Lee los PDF de la carpeta, extrae párrafos (pypdf en modo layout) y pide al LLM que los agrupe por significado. El modelo solo devuelve rangos JSON; el texto de cada chunk es el original. Un chunk puede abarcar varias páginas si pertenecen al mismo grupo semántico. `CHUNK_SIZE` limita grupos de varios párrafos; un párrafo individual no se corta. El campo `page` guarda la página del primer párrafo de cada fragmento, por lo que las referencias indican su página inicial y el contenido puede continuar en páginas posteriores. Luego Voyage genera los embeddings y se guardan en `documents` y `chunks`.
 
 El reporte indica, por archivo ingerido, cuántas páginas y fragmentos quedaron. Los documentos ya ingeridos se omiten (por su `sha256`). Un archivo ilegible, un PDF dañado o un agrupado inválido se reporta sin detener el resto. Si Voyage o el LLM no responden, el comando se detiene; al volver a correrlo se omiten los que ya estaban guardados.
 
