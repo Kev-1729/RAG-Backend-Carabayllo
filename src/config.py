@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Any, cast
 
 from pydantic import Field, SecretStr
@@ -22,4 +23,7 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
 
 
-settings: Settings = cast(Any, Settings)()
+@lru_cache
+def get_settings() -> Settings:
+    loaded: Settings = cast(Any, Settings)()
+    return loaded

@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.config import settings
+from src.config import get_settings
 from src.domain.exceptions import LLMUnavailableError
 from src.interfaces.routers import query
 
@@ -16,7 +16,7 @@ def create_application() -> FastAPI:
 
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.parsed_cors_origins,
+        allow_origins=get_settings().parsed_cors_origins,
         allow_methods=["POST"],
         allow_headers=["*"],
     )

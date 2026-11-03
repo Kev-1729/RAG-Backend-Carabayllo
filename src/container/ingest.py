@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from src.application.ingest.ingest_documents import IngestDocuments
 from src.application.ingest.semantic_chunker import SemanticChunker
-from src.config import settings
+from src.config import get_settings
 from src.container.llm import get_llm
 from src.infrastructure.db.database import create_engine, create_session_factory
 from src.infrastructure.db.document_repository import SqlAlchemyDocumentRepository
@@ -14,17 +14,18 @@ from src.infrastructure.pdf.pypdf_loader import PypdfLoader
 
 @asynccontextmanager
 async def ingest_documents() -> AsyncIterator[IngestDocuments]:
-    engine = create_engine(settings.database_url.get_secret_value())
+    loaded = get_settings()
+    engine = create_engine(loaded.database_url.get_secret_value())
     try:
         yield IngestDocuments(
             loader=PypdfLoader(),
             embedder=VoyageEmbedder(
-                api_key=settings.voyage_api_key.get_secret_value(),
-                model=settings.embedding_model,
+                api_key=loaded.voyage_api_key.get_secret_value(),
+                model=loaded.embedding_model,
                 dimension=EMBEDDING_DIMENSION,
             ),
             repository=SqlAlchemyDocumentRepository(create_session_factory(engine)),
-            chunker=SemanticChunker(get_llm(), max_chars=settings.chunk_size),
+            chunker=SemanticChunker(get_llm(), max_chars=loaded.chunk_size),
         )
     finally:
         await engine.dispose()
