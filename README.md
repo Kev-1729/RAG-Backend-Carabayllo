@@ -225,6 +225,14 @@ Si cambias el chunking, el `sha256` no cambia: hay que vaciar `chunks` y `docume
 
 ---
 
+### Componentes de búsqueda vectorial
+
+`Embedder.embed_query` genera el vector de una pregunta con `input_type="query"`, usando el modelo y la dimensión configurados en el mismo adaptador que genera los embeddings de documentos. El puerto `ChunkRetriever` permite buscar hasta `k` fragmentos (5 por defecto); su adaptador SQLAlchemy ordena por distancia coseno ascendente y excluye documentos con `superseded_by_id` no nulo. Cada resultado contiene texto, identificador, título y nombre de archivo del documento, página inicial y distancia (menor significa más parecido).
+
+La consulta es compatible con el índice HNSW de distancia coseno existente. HNSW es aproximado: los filtros pueden reducir la cantidad de resultados; el uso efectivo del índice y la calidad de recuperación requieren validación con PostgreSQL y datos reales. Referencias: [embeddings de Voyage](https://docs.voyageai.com/docs/embeddings) y [filtrado en pgvector](https://github.com/pgvector/pgvector#filtering).
+
+Estos componentes todavía no están conectados a `/query`, que continúa llamando directamente al LLM. La selección por umbral, las fuentes y la abstención se incorporarán al caso de uso. Una búsqueda sin filas devuelve una lista vacía; los fallos de conexión o timeout generan `RetrievalUnavailableError`, cuyo manejo HTTP se añadirá al conectar el flujo.
+
 ## Tests
 
 ```bash
@@ -232,6 +240,8 @@ pytest
 ```
 
 Los proveedores externos se mockean en los tests unitarios. Se exige una cobertura mínima del **80 %** sobre `src/application`.
+
+Las pruebas de búsqueda verifican el SQL compilado para PostgreSQL, el mapeo de resultados y los errores con sesiones simuladas. Las de Voyage comprueban los parámetros enviados al SDK, los lotes y los errores. No consumen APIs ni acceden a Supabase; no sustituyen una prueba de integración con pgvector.
 
 ---
 

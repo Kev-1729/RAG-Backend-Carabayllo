@@ -29,6 +29,9 @@ class FakeEmbedder:
     async def embed_documents(self, texts: list[str]) -> list[tuple[float, ...]]:
         return [(float(len(text)),) for text in texts]
 
+    async def embed_query(self, text: str) -> tuple[float, ...]:
+        raise AssertionError("La ingesta no debe generar embeddings de consultas")
+
 
 class FakeRepository:
     def __init__(self, existing: set[str] | None = None) -> None:

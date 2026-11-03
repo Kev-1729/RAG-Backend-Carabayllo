@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from uuid import UUID
 
 
 @dataclass(frozen=True)
@@ -35,3 +36,15 @@ class Chunk:
     index: int
     content: str
     embedding: tuple[float, ...]
+
+
+@dataclass(frozen=True)
+class RetrievedChunk:
+    """Fragmento recuperado; page es la página inicial y menor distance es mejor."""
+
+    document_id: UUID
+    title: str
+    file_name: str
+    page: int
+    content: str
+    distance: float
