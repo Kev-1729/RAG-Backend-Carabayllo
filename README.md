@@ -165,6 +165,7 @@ Copia `.env.example` a `.env` y completa los valores. **Nunca subas `.env` al re
 | `VOYAGE_API_KEY` | Sí | API key de Voyage AI ([dashboard.voyageai.com](https://dashboard.voyageai.com)). Sin método de pago el límite es de 3 peticiones por minuto |
 | `EMBEDDING_MODEL` | No | Modelo de embeddings. Por defecto `voyage-4`; debe generar vectores de 1024 dimensiones |
 | `CHUNK_SIZE` | No | Tope en caracteres para un grupo de varios párrafos. Por defecto `1000`. Un párrafo solo no se corta |
+| `RETRIEVAL_MAX_DISTANCE` | No | Distancia coseno máxima aceptada, entre 0 y 2. Por defecto `0.5`, valor inicial pendiente de calibración con preguntas reales |
 
 ---
 
@@ -211,7 +212,26 @@ curl -X POST http://localhost:8000/query \
   -d '{"question": "¿Qué necesito para sacar una licencia de funcionamiento?"}'
 ```
 
-### Ingesta de documentos
+### Consultas RAG
+
+`POST /query` genera el embedding de la pregunta, busca hasta cinco fragmentos de documentos vigentes y conserva únicamente aquellos cuya distancia es menor o igual a `RETRIEVAL_MAX_DISTANCE`. Claude recibe la pregunta y ese contexto, con instrucciones de responder solo a partir de los documentos y citar las fuentes numeradas.
+
+La respuesta incluye `answer` y `sources`, por ejemplo:
+
+```json
+{
+  "answer": "Presenta el formulario indicado [1].",
+  "sources": [{"document": "Licencias", "page": 2}]
+}
+```
+
+Las fuentes describen el contexto enviado al modelo y se deduplican por identificador de documento y página inicial. El número `[1]` corresponde al primer elemento de `sources`; `page` indica dónde empieza el fragmento. La lista no certifica que el modelo haya utilizado todos los fragmentos ni valida automáticamente cada afirmación.
+
+Sin fragmentos relevantes, se devuelve una respuesta fija en español con `sources: []`, sin llamar a Claude. Si el modelo considera insuficiente el contexto, se le indica devolver la misma abstención. Las preguntas vacías devuelven 422; la indisponibilidad de Voyage, de la búsqueda o de Claude devuelve 503 sin detalles internos.
+
+El [lifespan de FastAPI](https://fastapi.tiangolo.com/advanced/events/) obtiene el caso de uso desde `container`, crea el engine y los adaptadores una vez por instancia de aplicación y cierra el engine y el cliente LLM al apagarla. Cada búsqueda usa su propia sesión de base de datos.
+
+### Ingesta por CLI
 
 ```bash
 python -m src.interfaces.cli.ingest "ruta/a/la/carpeta"
@@ -231,7 +251,7 @@ Si cambias el chunking, el `sha256` no cambia: hay que vaciar `chunks` y `docume
 
 La consulta es compatible con el índice HNSW de distancia coseno existente. HNSW es aproximado: los filtros pueden reducir la cantidad de resultados; el uso efectivo del índice y la calidad de recuperación requieren validación con PostgreSQL y datos reales. Referencias: [embeddings de Voyage](https://docs.voyageai.com/docs/embeddings) y [filtrado en pgvector](https://github.com/pgvector/pgvector#filtering).
 
-Estos componentes todavía no están conectados a `/query`, que continúa llamando directamente al LLM. La selección por umbral, las fuentes y la abstención se incorporarán al caso de uso. Una búsqueda sin filas devuelve una lista vacía; los fallos de conexión o timeout generan `RetrievalUnavailableError`, cuyo manejo HTTP se añadirá al conectar el flujo.
+Estos componentes están conectados a `/query` mediante `AnswerQuery`. La selección por umbral, las fuentes y la abstención pertenecen al caso de uso. Una búsqueda sin filas devuelve una lista vacía; los fallos de conexión o timeout generan `RetrievalUnavailableError`, que HTTP traduce a 503.
 
 ## Tests
 
@@ -282,12 +302,12 @@ Estas mismas verificaciones, más `pytest`, corren en GitHub Actions en cada pul
 - [x] Estructura base y tooling
 - [x] Configuración con `pydantic-settings`
 - [x] Dominio: entidades y puertos
-- [x] Endpoint de consulta conectado al LLM (sin retrieval)
+- [x] Endpoint de consulta conectado al LLM
 - [x] Base de datos: PostgreSQL + pgvector con migraciones (Alembic)
 - [x] Ingesta de documentos PDF con chunking semántico
 - [ ] Ingesta de otros formatos
 - [ ] OCR para documentos escaneados
-- [ ] Consulta RAG con citas a la fuente
+- [x] Flujo de consulta RAG con fuentes y abstención (pendiente de validación con servicios reales)
 - [ ] Memoria conversacional
 - [ ] Feedback de usuarios y métricas de exactitud
 - [ ] Evaluación automática del pipeline

@@ -8,8 +8,16 @@ class Query:
 
 
 @dataclass(frozen=True)
+class AnswerSource:
+    document_id: UUID
+    document: str
+    page: int
+
+
+@dataclass(frozen=True)
 class Answer:
     text: str
+    sources: tuple[AnswerSource, ...] = ()
 
 
 @dataclass(frozen=True)

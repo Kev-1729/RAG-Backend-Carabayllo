@@ -12,5 +12,11 @@ class QueryRequest(BaseModel):
         return value
 
 
+class SourceResponse(BaseModel):
+    document: str
+    page: int
+
+
 class QueryResponse(BaseModel):
     answer: str
+    sources: list[SourceResponse]
