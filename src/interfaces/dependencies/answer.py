@@ -2,8 +2,8 @@ from typing import cast
 
 from fastapi import Request
 
-from src.application.answer.answer_query import AnswerQuery
+from src.application.answer.conversation_query import ConversationQuery
 
 
-def get_answer_query(request: Request) -> AnswerQuery:
-    return cast(AnswerQuery, request.app.state.answer_query)
+def get_conversation_query(request: Request) -> ConversationQuery:
+    return cast(ConversationQuery, request.app.state.conversation_query)

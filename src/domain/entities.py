@@ -1,10 +1,12 @@
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
 
 @dataclass(frozen=True)
 class Query:
     text: str
+    conversation_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -18,6 +20,16 @@ class AnswerSource:
 class Answer:
     text: str
     sources: tuple[AnswerSource, ...] = ()
+    conversation_id: UUID | None = None
+    message_id: UUID | None = None
+
+
+@dataclass(frozen=True)
+class ChatMessage:
+    id: UUID
+    role: str
+    content: str
+    created_at: datetime
 
 
 @dataclass(frozen=True)
