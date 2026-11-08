@@ -91,7 +91,7 @@ rag/
 ├── src/
 │   ├── domain/            # entities, ports, exceptions
 │   ├── application/
-│   │   ├── answer/        # caso de uso AnswerQuery
+│   │   ├── answer/        # respuesta RAG y conversación
 │   │   └── ingest/        # IngestDocuments y chunking semántico
 │   ├── infrastructure/
 │   │   ├── db/            # conexión, modelos ORM y repositorio de documentos
@@ -216,12 +216,14 @@ curl -X POST http://localhost:8000/query \
 
 `POST /query` genera el embedding de la pregunta, busca hasta cinco fragmentos de documentos vigentes y conserva únicamente aquellos cuya distancia es menor o igual a `RETRIEVAL_MAX_DISTANCE`. Claude recibe la pregunta y ese contexto, con instrucciones de responder solo a partir de los documentos y citar las fuentes numeradas.
 
-La respuesta incluye `answer` y `sources`, por ejemplo:
+Toda respuesta exitosa incluye `answer`, `sources`, `conversation_id` y `message_id`, también cuando el asistente se abstiene. Por ejemplo:
 
 ```json
 {
   "answer": "Presenta el formulario indicado [1].",
-  "sources": [{"document": "Licencias", "page": 2}]
+  "sources": [{"document": "Licencias", "page": 2}],
+  "conversation_id": "e35e2d73-9f02-4a35-9cba-7febdc995238",
+  "message_id": "7a1c6d84-3741-4f8b-9b27-c7a4d0e03a25"
 }
 ```
 
@@ -230,6 +232,45 @@ Las fuentes describen el contexto enviado al modelo y se deduplican por identifi
 Sin fragmentos relevantes, se devuelve una respuesta fija en español con `sources: []`, sin llamar a Claude. Si el modelo considera insuficiente el contexto, se le indica devolver la misma abstención. Las preguntas vacías devuelven 422; la indisponibilidad de Voyage, de la búsqueda o de Claude devuelve 503 sin detalles internos.
 
 El [lifespan de FastAPI](https://fastapi.tiangolo.com/advanced/events/) obtiene el caso de uso desde `container`, crea el engine y los adaptadores una vez por instancia de aplicación y cierra el engine y el cliente LLM al apagarla. Cada búsqueda usa su propia sesión de base de datos.
+
+### Conversaciones y memoria
+
+`POST /query` acepta `conversation_id` opcional. Sin él, guarda una conversación
+nueva; con él, recupera los últimos diez mensajes y continúa la conversación.
+Devuelve `conversation_id` y `message_id` (identificador de la respuesta), además
+de `answer` y `sources`.
+
+```json
+{"question": "¿Qué necesito para una licencia de bodega?"}
+```
+
+Para continuar, usa el `conversation_id` devuelto:
+
+```json
+{"question": "¿Y cuánto cuesta?", "conversation_id": "UUID recibido"}
+```
+
+`GET /conversations/{conversation_id}?limit=50` devuelve los mensajes recientes en
+orden cronológico (`limit`: 1–100). Un UUID inválido devuelve 422; una conversación
+inexistente devuelve 404; un fallo de almacenamiento devuelve 503.
+
+Cada pregunta y respuesta se guardan juntas en una transacción, incluidas las
+abstenciones. Si falla la generación, no se guarda un turno incompleto. Un error
+al guardar devuelve 503 aunque la generación haya terminado; reenviar crea una
+nueva ejecución (no hay idempotencia). No se modifica el esquema de base de datos.
+
+Para la búsqueda se combinan las preguntas del historial reciente con la actual.
+El modelo recibe también los mensajes recientes, limitados a 2000 caracteres por
+mensaje, solo para interpretar referencias; las fuentes factuales siguen siendo
+los fragmentos recuperados. Es contexto limitado, no memoria ilimitada ni una
+reescritura inteligente de consultas: un cambio de tema puede introducir ruido en
+la búsqueda. Iniciar otra conversación permite separar temas.
+
+El historial recuperado contiene texto, rol, fecha e identificador; la persistencia
+de referencias de chunks y métricas de generación sigue pendiente. No hay listado
+público de conversaciones: el cliente debe conservar su UUID. El UUID no sustituye
+la protección de acceso; la aplicación sigue sin login y la política de retención
+y protección de conversaciones debe definirse antes del despliegue.
 
 ### Ingesta por CLI
 
@@ -251,9 +292,18 @@ Si cambias el chunking, el `sha256` no cambia: hay que vaciar `chunks` y `docume
 
 La consulta es compatible con el índice HNSW de distancia coseno existente. HNSW es aproximado: los filtros pueden reducir la cantidad de resultados; el uso efectivo del índice y la calidad de recuperación requieren validación con PostgreSQL y datos reales. Referencias: [embeddings de Voyage](https://docs.voyageai.com/docs/embeddings) y [filtrado en pgvector](https://github.com/pgvector/pgvector#filtering).
 
-Estos componentes están conectados a `/query` mediante `AnswerQuery`. La selección por umbral, las fuentes y la abstención pertenecen al caso de uso. Una búsqueda sin filas devuelve una lista vacía; los fallos de conexión o timeout generan `RetrievalUnavailableError`, que HTTP traduce a 503.
+`POST /query` ejecuta `ConversationQuery`, que recupera y guarda el historial y delega la respuesta RAG a `AnswerQuery` mediante el protocolo `Answerer`. La selección por umbral, las fuentes y la abstención pertenecen a `AnswerQuery`. Una búsqueda sin filas devuelve una lista vacía; los fallos de conexión o timeout generan `RetrievalUnavailableError`, que HTTP traduce a 503.
 
 ## Tests
+
+### Evaluación de recuperación
+
+El comando `python -m evaluations.evaluate --corpus-label fixed-1000-overlap-200`
+evalúa preguntas etiquetadas con Voyage y Supabase reales, sin llamar a Claude.
+Guarda un `report.json` por ejecución en `evaluations/results/<fecha-hora>/`,
+ignorado por Git. El set revisado y las métricas se describen en
+[`evaluations/README.md`](evaluations/README.md). Es una medición a nivel de documento;
+no valida la calidad de las respuestas del LLM.
 
 ```bash
 pytest
@@ -308,7 +358,7 @@ Estas mismas verificaciones, más `pytest`, corren en GitHub Actions en cada pul
 - [ ] Ingesta de otros formatos
 - [ ] OCR para documentos escaneados
 - [x] Flujo de consulta RAG con fuentes y abstención (pendiente de validación con servicios reales)
-- [ ] Memoria conversacional
+- [x] Memoria conversacional con historial limitado (pendiente de validación con servicios reales)
 - [ ] Feedback de usuarios y métricas de exactitud
 - [ ] Evaluación automática del pipeline
 - [ ] Streaming de respuestas

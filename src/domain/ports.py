@@ -1,6 +1,17 @@
 from typing import Protocol
+from uuid import UUID
 
-from src.domain.entities import Chunk, Document, Page, RetrievedChunk
+from src.domain.entities import ChatMessage, Chunk, Document, Page, RetrievedChunk
+
+
+class ConversationRepository(Protocol):
+    async def history(
+        self, conversation_id: UUID, limit: int
+    ) -> tuple[ChatMessage, ...]: ...
+
+    async def save_exchange(
+        self, conversation_id: UUID | None, question: str, answer: str
+    ) -> tuple[UUID, UUID]: ...
 
 
 class LLM(Protocol):

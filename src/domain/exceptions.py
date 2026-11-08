@@ -2,6 +2,14 @@ class LLMUnavailableError(Exception):
     """El proveedor no responde (caído, rate limit, red)."""
 
 
+class ConversationNotFoundError(Exception):
+    """La conversación solicitada no existe."""
+
+
+class ConversationUnavailableError(Exception):
+    """El almacenamiento de conversaciones no está disponible."""
+
+
 class EmbeddingUnavailableError(Exception):
     """El servicio de embeddings no responde (caído, rate limit, red)."""
 

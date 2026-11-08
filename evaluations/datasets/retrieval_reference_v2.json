@@ -1,0 +1,762 @@
+[
+  {
+    "id": "noise-01",
+    "question": "¿Cómo denuncio a un vecino que hace ruido con música a alto volumen?",
+    "expected_documents": [
+      "Denuncia_Ruidos_Molestos.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "3. ¿CÓMO DENUNCIAR A UN VECINO RUIDOSO?"
+    }
+  },
+  {
+    "id": "noise-02",
+    "question": "¿Qué horario indica la guía para los trabajos de construcción los sábados?",
+    "expected_documents": [
+      "Denuncia_Ruidos_Molestos.pdf"
+    ],
+    "evidence": {
+      "page": 2,
+      "section": "5. RUIDOS POR CONSTRUCCIÓN"
+    }
+  },
+  {
+    "id": "noise-03",
+    "question": "Quiero reportar una fiesta con equipos de sonido que no deja dormir. ¿A qué central llamo y qué hago?",
+    "expected_documents": [
+      "Denuncia_Ruidos_Molestos.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "3. ¿CÓMO DENUNCIAR A UN VECINO RUIDOSO?"
+    }
+  },
+  {
+    "id": "noise-04",
+    "question": "¿Hasta cuántos decibeles se permiten de noche en zona residencial?",
+    "expected_documents": [
+      "Denuncia_Ruidos_Molestos.pdf",
+      "TRÁMITES Y FISCALIZACIÓN.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "2. HORARIOS Y LÍMITES (ZONA RESIDENCIAL)"
+    }
+  },
+  {
+    "id": "waste-01",
+    "question": "¿Qué pruebas debo presentar para denunciar a alguien que arroja desmonte en la calle?",
+    "expected_documents": [
+      "Sanciones_Basura.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "4. CÓMO DENUNCIAR AL VECINO INFRACTOR"
+    }
+  },
+  {
+    "id": "waste-02",
+    "question": "¿Cuándo debo sacar las bolsas de basura para que se las lleve el camión recolector?",
+    "expected_documents": [
+      "Sanciones_Basura.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. OBLIGACIONES DEL VECINO (HORARIO DE RECOLECCIÓN)"
+    }
+  },
+  {
+    "id": "waste-03",
+    "question": "¿Puedo quemar hojas secas o basura en la vereda de mi casa?",
+    "expected_documents": [
+      "Sanciones_Basura.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "3. QUEMA DE BASURA"
+    }
+  },
+  {
+    "id": "public-space-01",
+    "question": "¿Qué documentos piden para colocar materiales de construcción temporalmente en la vía pública?",
+    "expected_documents": [
+      "Autorizacion_Via_Publica_Materiales.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "3. REQUISITOS PARA EL TRÁMITE"
+    }
+  },
+  {
+    "id": "public-space-02",
+    "question": "Si autorizan ocupar la berma con ladrillos, ¿cuánto espacio peatonal mínimo debo dejar?",
+    "expected_documents": [
+      "Autorizacion_Via_Publica_Materiales.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "2. RESTRICCIONES IMPORTANTES"
+    }
+  },
+  {
+    "id": "public-space-03",
+    "question": "¿Qué recomienda la guía sobre los horarios de descarga de cemento y fierros para evitar multas de tránsito?",
+    "expected_documents": [
+      "Autorizacion_Via_Publica_Materiales.pdf"
+    ],
+    "evidence": {
+      "page": 2,
+      "section": "5. HORARIOS DE CARGA Y DESCARGA"
+    }
+  },
+  {
+    "id": "forms-01",
+    "question": "¿Dónde puedo descargar el formato de solicitud de acceso a la información pública?",
+    "expected_documents": [
+      "Guia_Descarga_Formularios.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. PORTAL DE TRANSPARENCIA ESTÁNDAR (PTE)"
+    }
+  },
+  {
+    "id": "forms-02",
+    "question": "¿Los anexos de seguridad ITSE se descargan en la web de la municipalidad o en CENEPRED?",
+    "expected_documents": [
+      "Guia_Descarga_Formularios.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "2. FORMULARIOS DE LICENCIA DE FUNCIONAMIENTO"
+    }
+  },
+  {
+    "id": "zoning-01",
+    "question": "¿Cómo verifico si el giro de mi negocio está permitido en la dirección de mi local?",
+    "expected_documents": [
+      "Guia_Zonificacion_Ubicacion_Negocios.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. EL PRIMER PASO: CONSULTA DE COMPATIBILIDAD DE USO (ZONIFICACIÓN)"
+    }
+  },
+  {
+    "id": "zoning-02",
+    "question": "Antes de alquilar un local para un taller de mecánica, ¿dónde consulto gratis si esa calle permite el giro?",
+    "expected_documents": [
+      "Guia_Zonificacion_Ubicacion_Negocios.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. EL PRIMER PASO: CONSULTA DE COMPATIBILIDAD DE USO (ZONIFICACIÓN)"
+    }
+  },
+  {
+    "id": "zoning-03",
+    "question": "¿Cuál es la dirección y el horario de la Subgerencia de Comercialización en el Palacio Municipal?",
+    "expected_documents": [
+      "Guia_Zonificacion_Ubicacion_Negocios.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "2. ¿A DÓNDE IR?"
+    }
+  },
+  {
+    "id": "bodega-01",
+    "question": "Para la licencia de una bodega, ¿qué debo declarar como área del negocio y en qué estado debe estar el RUC?",
+    "expected_documents": [
+      "Checklist_Requisitos_Bodega.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. DOCUMENTOS ADMINISTRATIVOS"
+    }
+  },
+  {
+    "id": "bodega-02",
+    "question": "Si mi hijo va a hacer el trámite de la bodega por mí, ¿qué documento de representación piden?",
+    "expected_documents": [
+      "Checklist_Requisitos_Bodega.pdf"
+    ],
+    "evidence": {
+      "page": 2,
+      "section": "Carta Poder Simple"
+    }
+  },
+  {
+    "id": "bodega-03",
+    "question": "En el formato de registro de bodegas, ¿qué datos del establecimiento debo anotar además del croquis?",
+    "expected_documents": [
+      "Resumen para el Llenado del Formato para registro de bodegas.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "III. Datos del Establecimiento Bodeguero"
+    }
+  },
+  {
+    "id": "bodega-04",
+    "question": "¿En qué ley se ampara la licencia provisional de funcionamiento para bodegas?",
+    "expected_documents": [
+      "Declaración Jurada para Licencia Provisional de Funcionamiento para Bodegas.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "Ley N° 30877"
+    }
+  },
+  {
+    "id": "license-eval-01",
+    "question": "Según la Ley Marco, ¿qué dos aspectos evalúa la municipalidad para otorgar la licencia de funcionamiento?",
+    "expected_documents": [
+      "Información sobre Licencia de Funcionamiento.pdf",
+      "Pasos para Licencia de Funcionamiento.pdf",
+      "Resumen de la Ley N28976.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "Zonificación y condiciones de seguridad"
+    }
+  },
+  {
+    "id": "license-steps-01",
+    "question": "¿Qué pasos debo seguir en Carabayllo para pedir orientación y luego ingresar la licencia por Mesa de Partes?",
+    "expected_documents": [
+      "Pasos para Licencia de Funcionamiento.pdf",
+      "Información sobre Licencia de Funcionamiento.pdf"
+    ],
+    "evidence": {
+      "page": 2,
+      "section": "Pasos para Obtener la Licencia"
+    }
+  },
+  {
+    "id": "license-req-01",
+    "question": "¿Qué documentos son obligatorios para cualquier licencia de funcionamiento, sea persona natural o jurídica?",
+    "expected_documents": [
+      "Requisitos_Generales_Licencia_Funcionamiento.pdf",
+      "Pasos para Licencia de Funcionamiento.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. DOCUMENTACIÓN OBLIGATORIA"
+    }
+  },
+  {
+    "id": "license-req-02",
+    "question": "Si mi empresa es una SAC, ¿qué vigencia de poder piden y de cuántos días de antigüedad máxima?",
+    "expected_documents": [
+      "Requisitos_Generales_Licencia_Funcionamiento.pdf",
+      "Checklist_Requisitos_Bodega.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "2. DIFERENCIA POR TIPO DE PERSONA"
+    }
+  },
+  {
+    "id": "license-fill-01",
+    "question": "Ya tengo licencia y quiero añadir un agente bancario a mi bodega. ¿Qué formulario uso para no pedir una licencia nueva?",
+    "expected_documents": [
+      "Cómo Llenar el Formulario Principal de Licencia de Funcionamiento.pdf"
+    ],
+    "evidence": {
+      "page": 2,
+      "section": "DJ de Actividades Simultáneas y Adicionales (Anexo N° 2)"
+    }
+  },
+  {
+    "id": "license-ads-01",
+    "question": "Tengo licencia de funcionamiento. ¿Puedo poner un letrero luminoso con estructura en la fachada sin otro trámite?",
+    "expected_documents": [
+      "LICENCIAS DE FUNCIONAMIENTO.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. LICENCIA PARA PUBLICIDAD EXTERIOR"
+    }
+  },
+  {
+    "id": "license-cease-01",
+    "question": "Si cierro el negocio, ¿tengo que comunicar el cese de la licencia y es gratuito?",
+    "expected_documents": [
+      "LICENCIAS DE FUNCIONAMIENTO.pdf",
+      "Resumen de la Ley N28976.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "3. CESE DE ACTIVIDADES"
+    }
+  },
+  {
+    "id": "license-plazo-01",
+    "question": "¿Cuántos días tarda la municipalidad en entregar la licencia de un local de hasta 100 m²?",
+    "expected_documents": [
+      "Plazos Oficiales para la Obtención de Licencia de Funcionamiento.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "GRUPO 1: Establecimientos Pequeños"
+    }
+  },
+  {
+    "id": "license-cost-01",
+    "question": "¿Cuánto cuesta el trámite de licencia de funcionamiento de un establecimiento de 1 a 100 m²?",
+    "expected_documents": [
+      "Pasos para Licencia de Funcionamiento.pdf",
+      "Precios de espacios públicos y certificados.pdf"
+    ],
+    "evidence": {
+      "page": 3,
+      "section": "Costos del Trámite / Licencias de Funcionamiento"
+    }
+  },
+  {
+    "id": "license-small-01",
+    "question": "Para un local de 80 m², ¿la inspección de Defensa Civil es antes o después de entregar la licencia?",
+    "expected_documents": [
+      "Procedimiento de Licencia de Funcionamiento para Establecimientos Pequeños.pdf",
+      "Procedimiento para la Obtención de Licencia de Funcionamiento.pdf",
+      "Plazos Oficiales para la Obtención de Licencia de Funcionamiento.pdf",
+      "Resumen de la Ley N28976.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "Ex Post"
+    }
+  },
+  {
+    "id": "license-medium-01",
+    "question": "Mi local tiene 200 m². ¿La inspección de Defensa Civil se hace antes de aprobar la licencia?",
+    "expected_documents": [
+      "Licencia de Funcionamiento para Establecimientos Medianos (101 a 500 m²) con Inspección Previa.pdf",
+      "Plazos Oficiales para la Obtención de Licencia de Funcionamiento.pdf",
+      "Resumen de la Ley N28976.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "Ex Ante"
+    }
+  },
+  {
+    "id": "license-large-01",
+    "question": "¿Qué se considera establecimiento grande para la licencia de funcionamiento en Carabayllo?",
+    "expected_documents": [
+      "Procedimiento de Licencia de Funcionamiento para Establecimientos Grandes.pdf",
+      "Plazos Oficiales para la Obtención de Licencia de Funcionamiento.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "Más de 500 m² o más de dos niveles"
+    }
+  },
+  {
+    "id": "license-excl-01",
+    "question": "¿Un centro educativo con más de 200 alumnos por turno entra en el trámite simplificado de hasta 100 m²?",
+    "expected_documents": [
+      "Procedimientos Administrativos para Licencias de Funcionamiento en Carabayllo.pdf"
+    ],
+    "evidence": {
+      "page": 2,
+      "section": "establecimientos que no entran en este trámite simplificado"
+    }
+  },
+  {
+    "id": "ley-01",
+    "question": "¿La licencia de funcionamiento tiene fecha de vencimiento según la Ley 28976?",
+    "expected_documents": [
+      "Resumen de la Ley N28976.pdf",
+      "Pasos para Licencia de Funcionamiento.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "Vigencia indeterminada"
+    }
+  },
+  {
+    "id": "predial-01",
+    "question": "Si terminé de techar un segundo piso, ¿hasta cuándo debo declarar el aumento de valor del predio?",
+    "expected_documents": [
+      "Declaracion_Aumento_Valor_Predial.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "2. PLAZO PARA DECLARAR"
+    }
+  },
+  {
+    "id": "predial-02",
+    "question": "Declaré una ampliación en marzo. ¿Desde cuándo me cobran más impuesto predial?",
+    "expected_documents": [
+      "Declaracion_Aumento_Valor_Predial.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "3. ¿CUÁNDO COMIENZO A PAGAR MÁS?"
+    }
+  },
+  {
+    "id": "predial-03",
+    "question": "¿Con qué alícuotas se calcula el impuesto predial según el valor en UIT?",
+    "expected_documents": [
+      "Tributos_Carabayllo_2025.pdf",
+      "Texto Único Ordenado de la ley de tributación municipal.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "Cálculo del Impuesto / Artículo 13"
+    }
+  },
+  {
+    "id": "predial-04",
+    "question": "Soy pensionista con un solo predio de vivienda. ¿Puedo deducir 50 UIT de la base imponible?",
+    "expected_documents": [
+      "Tributos_Carabayllo_2025.pdf",
+      "Texto Único Ordenado de la ley de tributación municipal.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "Pensionistas y Adultos Mayores / Artículo 18"
+    }
+  },
+  {
+    "id": "alcabala-01",
+    "question": "Al comprar una casa, ¿quién paga el impuesto de alcabala y cuál es la tasa?",
+    "expected_documents": [
+      "Texto Único Ordenado de la ley de tributación municipal.pdf"
+    ],
+    "evidence": {
+      "page": 3,
+      "section": "CAPÍTULO II: IMPUESTO DE ALCABALA"
+    }
+  },
+  {
+    "id": "hr-01",
+    "question": "¿El contribuyente llena a mano la Hoja de Resumen HR o la imprime el sistema municipal?",
+    "expected_documents": [
+      "Guia_Llenado_Declaracion_Jurada.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. ACLARACIÓN IMPORTANTE SOBRE EL HR Y PU"
+    }
+  },
+  {
+    "id": "tax-pay-01",
+    "question": "¿Hasta qué fecha vence la primera cuota del impuesto predial si pago fraccionado?",
+    "expected_documents": [
+      "Tributos_Carabayllo_2025.pdf"
+    ],
+    "evidence": {
+      "page": 2,
+      "section": "1ra Cuota vence el 28 de febrero"
+    }
+  },
+  {
+    "id": "claims-01",
+    "question": "La pista frente a mi casa quedó con un hueco después de una obra. ¿Presento libro de reclamaciones o una solicitud de intervención?",
+    "expected_documents": [
+      "Guia_Reclamos_Obras_Servicios.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. DIFERENCIA ENTRE RECLAMO Y REPORTE"
+    }
+  },
+  {
+    "id": "claims-02",
+    "question": "Hoy no pasó el camión de basura. ¿Debo armar expediente en Mesa de Partes o hay un canal rápido?",
+    "expected_documents": [
+      "Guia_Reclamos_Obras_Servicios.pdf"
+    ],
+    "evidence": {
+      "page": 2,
+      "section": "5. ALERTA VECINAL (WHATSAPP)"
+    }
+  },
+  {
+    "id": "obras-01",
+    "question": "Quiero ampliar mi casa unifamiliar hasta 120 m². ¿Qué modalidad de licencia de edificación aplica?",
+    "expected_documents": [
+      "Obras_Privadas_Carabayllo_2025.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "Modalidad A"
+    }
+  },
+  {
+    "id": "obras-02",
+    "question": "Construí hace años sin licencia y quiero inscribir la casa en SUNARP. ¿Qué trámite de regularización debo hacer?",
+    "expected_documents": [
+      "OBRAS Y CATASTRO.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. REGULARIZACIÓN DE EDIFICACIONES"
+    }
+  },
+  {
+    "id": "obras-03",
+    "question": "¿La constancia de posesión acredita que soy dueño del predio?",
+    "expected_documents": [
+      "Obras_Privadas_Carabayllo_2025.pdf",
+      "Tramites_Tecnicos.pdf"
+    ],
+    "evidence": {
+      "page": 2,
+      "section": "4. CONSTANCIA DE POSESIÓN"
+    }
+  },
+  {
+    "id": "obras-04",
+    "question": "Para visar planos y pedir luz o agua sin título en SUNARP, ¿en qué coordenadas deben estar los planos?",
+    "expected_documents": [
+      "Tramites_Tecnicos.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. VISACIÓN DE PLANOS PARA SERVICIOS BÁSICOS"
+    }
+  },
+  {
+    "id": "civil-01",
+    "question": "¿Con cuántos días hábiles de anticipación debo abrir el expediente para casarme en Carabayllo?",
+    "expected_documents": [
+      "Registro_Civil_Carabayllo_2025.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "2. MATRIMONIO CIVIL"
+    }
+  },
+  {
+    "id": "civil-02",
+    "question": "¿Cuánto cuesta aproximadamente una copia certificada de partida de nacimiento en el municipio?",
+    "expected_documents": [
+      "Registro_Civil_Carabayllo_2025.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. EMISIÓN DE COPIAS CERTIFICADAS"
+    }
+  },
+  {
+    "id": "civil-03",
+    "question": "Hay un error de s/z en el apellido de la partida. ¿Lo corrige la municipalidad o necesito sentencia judicial?",
+    "expected_documents": [
+      "REGISTRO CIVIL.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. RECTIFICACIÓN DE ACTAS"
+    }
+  },
+  {
+    "id": "civil-04",
+    "question": "Me casé en el extranjero. ¿En cuántos días debo inscribir el matrimonio al volver al Perú?",
+    "expected_documents": [
+      "REGISTRO CIVIL.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "2. INSCRIPCIÓN DE MATRIMONIO REALIZADO EN EL EXTRANJERO"
+    }
+  },
+  {
+    "id": "civil-05",
+    "question": "¿Cuáles son los requisitos del divorcio ulterior o divorcio rápido en la municipalidad?",
+    "expected_documents": [
+      "Registro_Civil_Carabayllo_2025.pdf"
+    ],
+    "evidence": {
+      "page": 2,
+      "section": "4. DIVORCIO ULTERIOR"
+    }
+  },
+  {
+    "id": "social-01",
+    "question": "¿Qué documentos piden en OMAPED para inscribir a una persona con discapacidad?",
+    "expected_documents": [
+      "Servicios_Sociales_Carabayllo_2025.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. OMAPED"
+    }
+  },
+  {
+    "id": "social-02",
+    "question": "¿Desde qué edad puedo afiliarme al CIAM y qué copia de DNI piden?",
+    "expected_documents": [
+      "Servicios_Sociales_Carabayllo_2025.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "2. CIAM"
+    }
+  },
+  {
+    "id": "social-03",
+    "question": "¿La DEMUNA puede conciliar alimentos y tenencia de un menor?",
+    "expected_documents": [
+      "SOCIAL Y SEGURIDAD.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. DEMUNA"
+    }
+  },
+  {
+    "id": "dogs-01",
+    "question": "Si tengo un pitbull, ¿debo usar bozal y correa en la calle?",
+    "expected_documents": [
+      "SOCIAL Y SEGURIDAD.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "2. REGISTRO DE CANES"
+    }
+  },
+  {
+    "id": "fiscal-01",
+    "question": "¿En qué horario atiende Mesa de Partes presencial en el Palacio Municipal?",
+    "expected_documents": [
+      "Tramite_Fiscalizacion_Carabayllo_2025.pdf",
+      "Tributos_Avanzado.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. MESA DE PARTES"
+    }
+  },
+  {
+    "id": "fiscal-02",
+    "question": "Si me notifican una multa, ¿en cuántos días hábiles el pronto pago puede dar descuento?",
+    "expected_documents": [
+      "Tramite_Fiscalizacion_Carabayllo_2025.pdf",
+      "Tributos_Avanzado.pdf"
+    ],
+    "evidence": {
+      "page": 2,
+      "section": "Beneficio por Pronto Pago"
+    }
+  },
+  {
+    "id": "info-01",
+    "question": "Pedí información pública por correo. ¿La municipalidad tiene plazo de 10 días hábiles?",
+    "expected_documents": [
+      "Tramite_Fiscalizacion_Carabayllo_2025.pdf",
+      "Tributos_Avanzado.pdf"
+    ],
+    "evidence": {
+      "page": 2,
+      "section": "5. ACCESO A LA INFORMACIÓN PÚBLICA"
+    }
+  },
+  {
+    "id": "transport-01",
+    "question": "¿Dan permiso de mototaxi a un conductor particular o solo a empresas autorizadas?",
+    "expected_documents": [
+      "Transporte_Ambiente_Servicios.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. TRANSPORTE MENOR (MOTOTAXIS)"
+    }
+  },
+  {
+    "id": "transport-02",
+    "question": "Un árbol de la berma choca con los cables. ¿Puedo talarlo yo o debo pedir poda a la municipalidad?",
+    "expected_documents": [
+      "Transporte_Ambiente_Servicios.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "2. SOLICITUD DE PODA DE ÁRBOLES"
+    }
+  },
+  {
+    "id": "prices-01",
+    "question": "Según el TUPA ratificado, ¿cuánto cuesta aproximadamente el matrimonio civil en el local municipal dentro del distrito?",
+    "expected_documents": [
+      "Precios de espacios públicos y certificados.pdf"
+    ],
+    "evidence": {
+      "page": 2,
+      "section": "Matrimonio Civil en el local Municipal"
+    }
+  },
+  {
+    "id": "cemetery-01",
+    "question": "¿Cuánto cuesta la autorización de entierro de un adulto y qué documentos piden?",
+    "expected_documents": [
+      "Resumen de Trámites y Servicios Municipales (Formato Texto).pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "I. Servicios y Trámites de Cementerios"
+    }
+  },
+  {
+    "id": "license-risk-01",
+    "question": "Según el manual de licencias 2025, ¿qué negocios se consideran de riesgo bajo para la ITSE?",
+    "expected_documents": [
+      "Licencias_Carabayllo_2025.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "2. CLASIFICACIÓN DE RIESGO (ITSE)"
+    }
+  },
+  {
+    "id": "fiscal-appeal-01",
+    "question": "¿En cuántos días hábiles presento el recurso de reconsideración de una multa y qué debo adjuntar?",
+    "expected_documents": [
+      "TRÁMITES Y FISCALIZACIÓN.pdf"
+    ],
+    "evidence": {
+      "page": 1,
+      "section": "1. IMPUGNACIÓN DE PAPELETAS Y MULTAS ADMINISTRATIVAS"
+    }
+  },
+  {
+    "id": "unrelated-01",
+    "question": "¿Cómo preparo una torta de chocolate?",
+    "expected_documents": []
+  },
+  {
+    "id": "unrelated-02",
+    "question": "¿Cómo resuelvo una ecuación cuadrática con la fórmula general?",
+    "expected_documents": []
+  },
+  {
+    "id": "out-of-corpus-01",
+    "question": "¿Cómo saco o renuevo mi licencia de conducir en Carabayllo?",
+    "expected_documents": []
+  },
+  {
+    "id": "out-of-corpus-02",
+    "question": "¿Dónde tramite el pasaporte y qué citas pide Migraciones?",
+    "expected_documents": []
+  },
+  {
+    "id": "out-of-corpus-03",
+    "question": "Quiero un duplicado de DNI. ¿La municipalidad de Carabayllo lo emite?",
+    "expected_documents": []
+  },
+  {
+    "id": "out-of-corpus-04",
+    "question": "¿Cómo pido permiso de posesión de armas de fuego ante Sucamec?",
+    "expected_documents": []
+  },
+  {
+    "id": "out-of-corpus-05",
+    "question": "¿Cómo recategorizo mi RUC en SUNAT del NRUS al régimen especial?",
+    "expected_documents": []
+  }
+]
