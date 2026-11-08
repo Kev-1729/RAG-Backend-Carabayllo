@@ -54,8 +54,7 @@ class SemanticChunker:
         for item in group:
             text_len = len(item[1])
             extra = text_len if not current else text_len + 2
-            page_changed = bool(current) and item[0] != current[0][0]
-            if current and (page_changed or current_len + extra > self._max_chars):
+            if current and current_len + extra > self._max_chars:
                 packed.append(current)
                 current = [item]
                 current_len = text_len

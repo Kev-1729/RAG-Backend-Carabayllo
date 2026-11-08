@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from src.application.answer.answer_query import AnswerQuery
 from src.domain.entities import Query
 from src.interfaces.dependencies.answer import get_answer_query
-from src.interfaces.schemas.query import QueryRequest, QueryResponse
+from src.interfaces.schemas.query import QueryRequest, QueryResponse, SourceResponse
 
 router = APIRouter(prefix="/query", tags=["query"])
 
@@ -14,4 +14,10 @@ async def answer_query(
     use_case: AnswerQuery = Depends(get_answer_query),
 ) -> QueryResponse:
     answer = await use_case.execute(Query(text=body.question))
-    return QueryResponse(answer=answer.text)
+    return QueryResponse(
+        answer=answer.text,
+        sources=[
+            SourceResponse(document=source.document, page=source.page)
+            for source in answer.sources
+        ],
+    )

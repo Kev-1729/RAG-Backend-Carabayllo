@@ -29,11 +29,18 @@ def chunker(*responses: str | BaseException, max_chars: int = 1000) -> SemanticC
     return SemanticChunker(FakeLLM(*responses), max_chars=max_chars)
 
 
-async def test_group_does_not_cross_pages() -> None:
+async def test_group_crosses_pages_and_keeps_start_page() -> None:
     document = pages(("Pagina uno.",), ("Pagina dos.",))
     pieces = await chunker("[[1, 2]]").split(document)
 
-    assert pieces == [(1, "Pagina uno."), (2, "Pagina dos.")]
+    assert pieces == [(1, "Pagina uno.\n\nPagina dos.")]
+
+
+async def test_cross_page_group_split_by_size_keeps_each_piece_start_page() -> None:
+    document = pages(("aaaa",), ("bbbb", "cccc"), ("dddd",))
+    pieces = await chunker("[[1, 4]]", max_chars=10).split(document)
+
+    assert pieces == [(1, "aaaa\n\nbbbb"), (2, "cccc\n\ndddd")]
 
 
 async def test_valid_groups_join_original_paragraphs() -> None:

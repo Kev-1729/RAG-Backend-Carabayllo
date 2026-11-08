@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Any, cast
 
 from pydantic import Field, SecretStr
@@ -12,6 +13,7 @@ class Settings(BaseSettings):
     voyage_api_key: SecretStr
     embedding_model: str = "voyage-4"
     chunk_size: int = Field(default=1000, gt=0)
+    retrieval_max_distance: float = Field(default=0.5, ge=0, le=2)
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
@@ -22,4 +24,7 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
 
 
-settings: Settings = cast(Any, Settings)()
+@lru_cache
+def get_settings() -> Settings:
+    loaded: Settings = cast(Any, Settings)()
+    return loaded

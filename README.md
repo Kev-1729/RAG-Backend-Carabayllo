@@ -165,6 +165,7 @@ Copia `.env.example` a `.env` y completa los valores. **Nunca subas `.env` al re
 | `VOYAGE_API_KEY` | Sí | API key de Voyage AI ([dashboard.voyageai.com](https://dashboard.voyageai.com)). Sin método de pago el límite es de 3 peticiones por minuto |
 | `EMBEDDING_MODEL` | No | Modelo de embeddings. Por defecto `voyage-4`; debe generar vectores de 1024 dimensiones |
 | `CHUNK_SIZE` | No | Tope en caracteres para un grupo de varios párrafos. Por defecto `1000`. Un párrafo solo no se corta |
+| `RETRIEVAL_MAX_DISTANCE` | No | Distancia coseno máxima aceptada, entre 0 y 2. Por defecto `0.5`, valor inicial pendiente de calibración con preguntas reales |
 
 ---
 
@@ -173,7 +174,7 @@ Copia `.env.example` a `.env` y completa los valores. **Nunca subas `.env` al re
 | Tabla | Propósito |
 | --- | --- |
 | `documents` | Un registro por PDF ingerido. El `sha256` del archivo evita ingerir el mismo documento dos veces. Si una versión nueva lo reemplaza, se conserva y `superseded_by_id` apunta a la nueva. |
-| `chunks` | Fragmentos de cada documento con su página (para las citas) y su embedding (`vector(1024)`), indexado con HNSW para la búsqueda por similitud. |
+| `chunks` | Fragmentos de cada documento con su página inicial (para las citas) y su embedding (`vector(1024)`), indexado con HNSW para la búsqueda por similitud. |
 | `conversations` | Una fila por conversación. Agrupa los mensajes para la memoria conversacional. |
 | `messages` | Una fila por pregunta (`user`) o respuesta (`assistant`), en orden por `created_at`. Las respuestas pueden guardar modelo, tokens y latencia. |
 | `ratings` | Calificación de 1 a 5 estrellas de una respuesta. Opcional y una sola por respuesta. |
@@ -211,19 +212,46 @@ curl -X POST http://localhost:8000/query \
   -d '{"question": "¿Qué necesito para sacar una licencia de funcionamiento?"}'
 ```
 
-### Ingesta de documentos
+### Consultas RAG
+
+`POST /query` genera el embedding de la pregunta, busca hasta cinco fragmentos de documentos vigentes y conserva únicamente aquellos cuya distancia es menor o igual a `RETRIEVAL_MAX_DISTANCE`. Claude recibe la pregunta y ese contexto, con instrucciones de responder solo a partir de los documentos y citar las fuentes numeradas.
+
+La respuesta incluye `answer` y `sources`, por ejemplo:
+
+```json
+{
+  "answer": "Presenta el formulario indicado [1].",
+  "sources": [{"document": "Licencias", "page": 2}]
+}
+```
+
+Las fuentes describen el contexto enviado al modelo y se deduplican por identificador de documento y página inicial. El número `[1]` corresponde al primer elemento de `sources`; `page` indica dónde empieza el fragmento. La lista no certifica que el modelo haya utilizado todos los fragmentos ni valida automáticamente cada afirmación.
+
+Sin fragmentos relevantes, se devuelve una respuesta fija en español con `sources: []`, sin llamar a Claude. Si el modelo considera insuficiente el contexto, se le indica devolver la misma abstención. Las preguntas vacías devuelven 422; la indisponibilidad de Voyage, de la búsqueda o de Claude devuelve 503 sin detalles internos.
+
+El [lifespan de FastAPI](https://fastapi.tiangolo.com/advanced/events/) obtiene el caso de uso desde `container`, crea el engine y los adaptadores una vez por instancia de aplicación y cierra el engine y el cliente LLM al apagarla. Cada búsqueda usa su propia sesión de base de datos.
+
+### Ingesta por CLI
 
 ```bash
 python -m src.interfaces.cli.ingest "ruta/a/la/carpeta"
 ```
 
-Lee los PDF de la carpeta, extrae párrafos (pypdf en modo layout) y pide al LLM que los agrupe por significado. El modelo solo devuelve rangos JSON; el texto de cada chunk es el original. Un chunk no cruza de página. `CHUNK_SIZE` limita grupos de varios párrafos de la misma página. Luego Voyage genera los embeddings y se guardan en `documents` y `chunks`.
+Lee los PDF de la carpeta, extrae párrafos (pypdf en modo layout) y pide al LLM que los agrupe por significado. El modelo solo devuelve rangos JSON; el texto de cada chunk es el original. Un chunk puede abarcar varias páginas si pertenecen al mismo grupo semántico. `CHUNK_SIZE` limita grupos de varios párrafos; un párrafo individual no se corta. El campo `page` guarda la página del primer párrafo de cada fragmento, por lo que las referencias indican su página inicial y el contenido puede continuar en páginas posteriores. Luego Voyage genera los embeddings y se guardan en `documents` y `chunks`.
 
 El reporte indica, por archivo ingerido, cuántas páginas y fragmentos quedaron. Los documentos ya ingeridos se omiten (por su `sha256`). Un archivo ilegible, un PDF dañado o un agrupado inválido se reporta sin detener el resto. Si Voyage o el LLM no responden, el comando se detiene; al volver a correrlo se omiten los que ya estaban guardados.
 
 Si cambias el chunking, el `sha256` no cambia: hay que vaciar `chunks` y `documents` en la base de desarrollo antes de reingerir.
 
 ---
+
+### Componentes de búsqueda vectorial
+
+`Embedder.embed_query` genera el vector de una pregunta con `input_type="query"`, usando el modelo y la dimensión configurados en el mismo adaptador que genera los embeddings de documentos. El puerto `ChunkRetriever` permite buscar hasta `k` fragmentos (5 por defecto); su adaptador SQLAlchemy ordena por distancia coseno ascendente y excluye documentos con `superseded_by_id` no nulo. Cada resultado contiene texto, identificador, título y nombre de archivo del documento, página inicial y distancia (menor significa más parecido).
+
+La consulta es compatible con el índice HNSW de distancia coseno existente. HNSW es aproximado: los filtros pueden reducir la cantidad de resultados; el uso efectivo del índice y la calidad de recuperación requieren validación con PostgreSQL y datos reales. Referencias: [embeddings de Voyage](https://docs.voyageai.com/docs/embeddings) y [filtrado en pgvector](https://github.com/pgvector/pgvector#filtering).
+
+Estos componentes están conectados a `/query` mediante `AnswerQuery`. La selección por umbral, las fuentes y la abstención pertenecen al caso de uso. Una búsqueda sin filas devuelve una lista vacía; los fallos de conexión o timeout generan `RetrievalUnavailableError`, que HTTP traduce a 503.
 
 ## Tests
 
@@ -232,6 +260,8 @@ pytest
 ```
 
 Los proveedores externos se mockean en los tests unitarios. Se exige una cobertura mínima del **80 %** sobre `src/application`.
+
+Las pruebas de búsqueda verifican el SQL compilado para PostgreSQL, el mapeo de resultados y los errores con sesiones simuladas. Las de Voyage comprueban los parámetros enviados al SDK, los lotes y los errores. No consumen APIs ni acceden a Supabase; no sustituyen una prueba de integración con pgvector.
 
 ---
 
@@ -272,12 +302,12 @@ Estas mismas verificaciones, más `pytest`, corren en GitHub Actions en cada pul
 - [x] Estructura base y tooling
 - [x] Configuración con `pydantic-settings`
 - [x] Dominio: entidades y puertos
-- [x] Endpoint de consulta conectado al LLM (sin retrieval)
+- [x] Endpoint de consulta conectado al LLM
 - [x] Base de datos: PostgreSQL + pgvector con migraciones (Alembic)
 - [x] Ingesta de documentos PDF con chunking semántico
 - [ ] Ingesta de otros formatos
 - [ ] OCR para documentos escaneados
-- [ ] Consulta RAG con citas a la fuente
+- [x] Flujo de consulta RAG con fuentes y abstención (pendiente de validación con servicios reales)
 - [ ] Memoria conversacional
 - [ ] Feedback de usuarios y métricas de exactitud
 - [ ] Evaluación automática del pipeline

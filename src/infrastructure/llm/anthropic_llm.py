@@ -8,6 +8,9 @@ class AnthropicLLM:
         self._client = anthropic.AsyncAnthropic(api_key=api_key)
         self._model = model
 
+    async def aclose(self) -> None:
+        await self._client.close()
+
     async def generate(self, system: str, prompt: str) -> str:
         try:
             response = await self._client.messages.create(

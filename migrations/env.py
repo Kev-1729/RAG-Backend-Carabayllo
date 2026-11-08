@@ -6,7 +6,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-from src.config import settings
+from src.config import get_settings
 from src.infrastructure.db.models import Base
 
 # this is the Alembic Config object, which provides
@@ -20,7 +20,7 @@ if config.config_file_name is not None:
 
 # La URL sale del .env; el "%" se escapa porque configparser lo interpreta.
 config.set_main_option(
-    "sqlalchemy.url", settings.database_url.get_secret_value().replace("%", "%%")
+    "sqlalchemy.url", get_settings().database_url.get_secret_value().replace("%", "%%")
 )
 
 target_metadata = Base.metadata
