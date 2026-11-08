@@ -22,7 +22,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["src"]
+known-first-party = ["src", "evaluations"]
 combine-as-imports = true
 
 [tool.mypy]

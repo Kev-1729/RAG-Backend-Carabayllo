@@ -255,6 +255,15 @@ Estos componentes están conectados a `/query` mediante `AnswerQuery`. La selecc
 
 ## Tests
 
+### Evaluación de recuperación
+
+El comando `python -m evaluations.evaluate --corpus-label fixed-1000-overlap-200`
+evalúa preguntas etiquetadas con Voyage y Supabase reales, sin llamar a Claude.
+Guarda un `report.json` por ejecución en `evaluations/results/<fecha-hora>/`,
+ignorado por Git. El set revisado y las métricas se describen en
+[`evaluations/README.md`](evaluations/README.md). Es una medición a nivel de documento;
+no valida la calidad de las respuestas del LLM.
+
 ```bash
 pytest
 ```

@@ -21,13 +21,13 @@ jobs:
         run: pip install -r requirements/tests.txt
 
       - name: Lint
-        run: ruff check --no-fix src tests
+        run: ruff check --no-fix src tests evaluations
 
       - name: Format
-        run: ruff format --check src tests
+        run: ruff format --check src tests evaluations
 
       - name: Type check
-        run: mypy src
+        run: mypy src evaluations
 
       - name: Tests
         run: pytest
