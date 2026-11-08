@@ -6,25 +6,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.config import get_settings
-from src.container.answer import conversation_query_resources
+from src.container.answer import answer_services
 from src.domain.exceptions import (
     ConversationNotFoundError,
     ConversationUnavailableError,
     EmbeddingUnavailableError,
+    InvalidRatingError,
     LLMUnavailableError,
+    MessageNotFoundError,
+    RatingAlreadyExistsError,
+    RatingUnavailableError,
     RetrievalUnavailableError,
 )
-from src.interfaces.routers import conversations, query
+from src.interfaces.routers import conversations, query, ratings
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-    async with conversation_query_resources() as use_case:
-        application.state.conversation_query = use_case
+    async with answer_services() as services:
+        application.state.conversation_query = services.conversation_query
+        application.state.submit_rating = services.submit_rating
         try:
             yield
         finally:
             del application.state.conversation_query
+            del application.state.submit_rating
 
 
 def create_application() -> FastAPI:
@@ -44,6 +50,29 @@ def create_application() -> FastAPI:
 
     application.include_router(query.router)
     application.include_router(conversations.router)
+    application.include_router(ratings.router)
+
+    @application.exception_handler(MessageNotFoundError)
+    async def message_not_found(_: Request, __: MessageNotFoundError) -> JSONResponse:
+        return JSONResponse(
+            status_code=404, content={"detail": "El mensaje no existe."}
+        )
+
+    @application.exception_handler(InvalidRatingError)
+    async def invalid_rating(_: Request, __: InvalidRatingError) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": "Solo se califican respuestas del asistente con 1 a 5 estrellas."
+            },
+        )
+
+    @application.exception_handler(RatingAlreadyExistsError)
+    async def rating_exists(_: Request, __: RatingAlreadyExistsError) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content={"detail": "Esta respuesta ya tiene una calificación."},
+        )
 
     @application.exception_handler(ConversationNotFoundError)
     async def conversation_not_found(
@@ -57,6 +86,7 @@ def create_application() -> FastAPI:
     @application.exception_handler(EmbeddingUnavailableError)
     @application.exception_handler(RetrievalUnavailableError)
     @application.exception_handler(ConversationUnavailableError)
+    @application.exception_handler(RatingUnavailableError)
     async def service_unavailable(_: Request, __: Exception) -> JSONResponse:
         return JSONResponse(
             status_code=503,

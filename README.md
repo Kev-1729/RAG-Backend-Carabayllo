@@ -252,11 +252,11 @@ Para continuar, usa el `conversation_id` devuelto:
 
 `GET /conversations/{conversation_id}?limit=50` devuelve los mensajes recientes en
 orden cronológico (`limit`: 1–100). Un UUID inválido devuelve 422; una conversación
-inexistente devuelve 404; un fallo de almacenamiento devuelve 503.
+inexistente devuelve 404; la indisponibilidad del almacenamiento devuelve 503.
 
 Cada pregunta y respuesta se guardan juntas en una transacción, incluidas las
 abstenciones. Si falla la generación, no se guarda un turno incompleto. Un error
-al guardar devuelve 503 aunque la generación haya terminado; reenviar crea una
+de disponibilidad al guardar devuelve 503 aunque la generación haya terminado; reenviar crea una
 nueva ejecución (no hay idempotencia). No se modifica el esquema de base de datos.
 
 Para la búsqueda se combinan las preguntas del historial reciente con la actual.
@@ -271,6 +271,28 @@ de referencias de chunks y métricas de generación sigue pendiente. No hay list
 público de conversaciones: el cliente debe conservar su UUID. El UUID no sustituye
 la protección de acceso; la aplicación sigue sin login y la política de retención
 y protección de conversaciones debe definirse antes del despliegue.
+
+### Calificaciones de respuestas
+
+Usa el `message_id` devuelto por `/query` para registrar una única calificación:
+
+```http
+POST /messages/{message_id}/rating
+Content-Type: application/json
+
+{"stars": 4}
+```
+
+Devuelve **201** con `message_id` y `stars`. Se aceptan enteros de 1 a 5; no se
+convierten cadenas, booleanos ni decimales. Un UUID inválido, estrellas inválidas
+o un mensaje del usuario devuelven **422**; un mensaje inexistente, **404**; una
+respuesta ya calificada, **409**; y la indisponibilidad de almacenamiento, **503**.
+La calificación no se modifica ni se elimina. La restricción de una por respuesta
+también se aplica a solicitudes simultáneas mediante la clave primaria existente.
+
+Se reutiliza `ratings`, sin migraciones ni llamadas a Voyage o Claude. Las métricas
+de costo y latencia se implementarán por separado. La regla es una calificación por
+mensaje, no por persona; no se añade autenticación en este cambio.
 
 ### Ingesta por CLI
 
@@ -359,7 +381,9 @@ Estas mismas verificaciones, más `pytest`, corren en GitHub Actions en cada pul
 - [ ] OCR para documentos escaneados
 - [x] Flujo de consulta RAG con fuentes y abstención (pendiente de validación con servicios reales)
 - [x] Memoria conversacional con historial limitado (pendiente de validación con servicios reales)
-- [ ] Feedback de usuarios y métricas de exactitud
+- [x] Calificación de respuestas de 1 a 5 estrellas (pendiente de validación con Supabase real)
+- [ ] Métricas de exactitud de las respuestas
+- [ ] Registro de consumo de tokens y latencia para estimar costos
 - [ ] Evaluación automática del pipeline
 - [ ] Streaming de respuestas
 - [ ] Autenticación

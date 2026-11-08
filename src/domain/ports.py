@@ -4,6 +4,12 @@ from uuid import UUID
 from src.domain.entities import ChatMessage, Chunk, Document, Page, RetrievedChunk
 
 
+class RatingRepository(Protocol):
+    async def message_role(self, message_id: UUID) -> str | None: ...
+
+    async def save(self, message_id: UUID, stars: int) -> None: ...
+
+
 class ConversationRepository(Protocol):
     async def history(
         self, conversation_id: UUID, limit: int

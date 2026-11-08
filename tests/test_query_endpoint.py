@@ -13,6 +13,8 @@ from pytest import MonkeyPatch
 from src import config
 from src.application.answer.answer_query import ABSTENTION_MESSAGE, AnswerQuery
 from src.application.answer.conversation_query import ConversationQuery
+from src.application.answer.submit_rating import SubmitRating
+from src.container.answer import AnswerServices
 from src.domain.entities import ChatMessage, RetrievedChunk
 from src.domain.exceptions import (
     ConversationNotFoundError,
@@ -21,7 +23,13 @@ from src.domain.exceptions import (
     LLMUnavailableError,
     RetrievalUnavailableError,
 )
-from src.domain.ports import LLM, ChunkRetriever, ConversationRepository, Embedder
+from src.domain.ports import (
+    LLM,
+    ChunkRetriever,
+    ConversationRepository,
+    Embedder,
+    RatingRepository,
+)
 from src.interfaces.schemas.query import QueryResponse
 
 
@@ -52,7 +60,11 @@ class MemoryConversations:
         return conversation_id, assistant.id
 
 
-def _client(monkeypatch: MonkeyPatch, use_case: ConversationQuery) -> TestClient:
+def _client(
+    monkeypatch: MonkeyPatch,
+    use_case: ConversationQuery,
+    submit_rating: SubmitRating | None = None,
+) -> TestClient:
     settings = config.Settings(
         _env_file=None,  # type: ignore[call-arg]
         anthropic_api_key=SecretStr("test"),
@@ -70,10 +82,12 @@ def _client(monkeypatch: MonkeyPatch, use_case: ConversationQuery) -> TestClient
     monkeypatch.setattr(main, "get_settings", lambda: settings)
 
     @asynccontextmanager
-    async def fake_resources() -> AsyncIterator[ConversationQuery]:
-        yield use_case
+    async def fake_resources() -> AsyncIterator[AnswerServices]:
+        yield AnswerServices(
+            use_case, submit_rating or SubmitRating(AsyncMock(spec=RatingRepository))
+        )
 
-    monkeypatch.setattr(main, "conversation_query_resources", fake_resources)
+    monkeypatch.setattr(main, "answer_services", fake_resources)
     return TestClient(main.create_application())
 
 
