@@ -281,6 +281,31 @@ público de conversaciones: el cliente debe conservar su UUID. El UUID no sustit
 la protección de acceso; la aplicación sigue sin login y la política de retención
 y protección de conversaciones debe definirse antes del despliegue.
 
+### Reemplazo de documentos
+
+La ingesta habitual sigue omitiendo archivos cuyo SHA-256 ya existe, incluso si
+pertenece a una versión histórica reemplazada; no reactiva versiones anteriores.
+Para reemplazar
+una versión, coloca solamente el PDF nuevo en una carpeta y pasa el UUID del
+documento vigente explícitamente:
+
+```powershell
+.\.venv\Scripts\python.exe -m src.interfaces.cli.ingest "ruta/carpeta-nueva-version" --replace UUID_DEL_DOCUMENTO_VIGENTE
+```
+
+El UUID se obtiene de `documents.id` en la base de desarrollo. No se deducen
+reemplazos por nombre ni título. La versión nueva y sus chunks se guardan junto
+con `superseded_by_id` de la anterior en una sola transacción, bloqueando la fila
+anterior para impedir reemplazos simultáneos. Una versión inexistente, ya
+reemplazada o un contenido que ya existe se reportan como fallo. Si la extracción,
+el chunking, los embeddings o el guardado fallan, la versión anterior sigue vigente.
+Los errores de proveedores interrumpen la ejecución como en la ingesta habitual.
+
+Se conservan todos los documentos, chunks y referencias históricos. Las búsquedas
+nuevas excluyen las versiones reemplazadas; el historial existente no se reescribe.
+Una cadena A → B → C conserva sus versiones; para el siguiente reemplazo se indica
+el UUID de C. No requiere migración ni reingesta de los documentos existentes.
+
 ### Calificaciones de respuestas
 
 Usa el `message_id` devuelto por `/query` para registrar una única calificación:
