@@ -14,8 +14,12 @@ from src.domain.entities import RetrievedChunk
 def test_document_ranking_and_threshold_are_separate() -> None:
     item = {"id": "a", "question": "q", "expected_documents": ["expected.pdf"]}
     matches = [
-        RetrievedChunk(UUID(int=1), "Other", "other.pdf", 1, "x", 0.1),
-        RetrievedChunk(UUID(int=2), "Expected", "expected.pdf", 2, "y", 0.6),
+        RetrievedChunk(
+            UUID(int=1), "Other", "other.pdf", 1, "x", 0.1, chunk_id=UUID(int=99)
+        ),
+        RetrievedChunk(
+            UUID(int=2), "Expected", "expected.pdf", 2, "y", 0.6, chunk_id=UUID(int=99)
+        ),
     ]
     row = evaluate.score(item, matches, 0.5)
     assert row["raw_rank"] == 2
@@ -64,7 +68,9 @@ async def test_run_saves_report_and_closes_engine(
     session.scalars.return_value = Mock(all=Mock(return_value=["a.pdf"]))
     embedder = SimpleNamespace(embed_query=AsyncMock(return_value=(1.0,)))
     retriever = SimpleNamespace(search_similar=AsyncMock())
-    match = RetrievedChunk(UUID(int=1), "A", "a.pdf", 1, "text", 0.2)
+    match = RetrievedChunk(
+        UUID(int=1), "A", "a.pdf", 1, "text", 0.2, chunk_id=UUID(int=99)
+    )
     retriever.search_similar.side_effect = (
         [[match], RuntimeError("offline")] if fails else [[match], []]
     )

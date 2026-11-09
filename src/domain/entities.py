@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import UUID
 
@@ -17,6 +17,18 @@ class AnswerSource:
 
 
 @dataclass(frozen=True)
+class AnswerReference:
+    """Contexto de una respuesta sin abstención; no certifica citas utilizadas.
+
+    Rank desde 1; score = 1 - distancia coseno, con rango [-1, 1].
+    """
+
+    chunk_id: UUID
+    rank: int
+    score: float
+
+
+@dataclass(frozen=True)
 class Answer:
     text: str
     sources: tuple[AnswerSource, ...] = ()
@@ -26,6 +38,7 @@ class Answer:
     input_tokens: int | None = None
     output_tokens: int | None = None
     latency_ms: int | None = None
+    references: tuple[AnswerReference, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -80,3 +93,4 @@ class RetrievedChunk:
     page: int
     content: str
     distance: float
+    chunk_id: UUID = field(kw_only=True)

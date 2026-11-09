@@ -6,7 +6,7 @@ from uuid import UUID
 import pytest
 from sqlalchemy.dialects import postgresql
 
-from src.domain.entities import Answer
+from src.domain.entities import Answer, AnswerReference
 from src.domain.exceptions import (
     ConversationNotFoundError,
     ConversationUnavailableError,
@@ -112,3 +112,44 @@ async def test_history_limit_must_be_positive() -> None:
     repo, _ = repository()
     with pytest.raises(ValueError):
         await repo.history(UUID(int=1), 0)
+
+
+async def test_references_belong_to_answer_and_share_exchange_transaction() -> None:
+    repo, session = repository()
+    session.get.return_value = object()
+    _, answer_id = await repo.save_exchange(
+        UUID(int=1),
+        "q",
+        Answer(
+            "a",
+            references=(
+                AnswerReference(UUID(int=10), 1, 0.9),
+                AnswerReference(UUID(int=11), 2, 0.7),
+            ),
+        ),
+    )
+    calls = session.add_all.call_args_list
+    assert len(calls) == 2
+    references = list(calls[1].args[0])
+    assert [(r.message_id, r.chunk_id, r.rank, r.score) for r in references] == [
+        (answer_id, UUID(int=10), 1, 0.9),
+        (answer_id, UUID(int=11), 2, 0.7),
+    ]
+    session.flush.assert_awaited_once()
+    session.begin.return_value.__aexit__.assert_awaited_once_with(None, None, None)
+
+
+async def test_reference_failure_rolls_back_the_whole_exchange() -> None:
+    repo, session = repository()
+    session.get.return_value = object()
+    session.add_all.side_effect = [None, ConnectionRefusedError()]
+    with pytest.raises(ConversationUnavailableError):
+        await repo.save_exchange(
+            UUID(int=1),
+            "q",
+            Answer("a", references=(AnswerReference(UUID(int=10), 1, 0.9),)),
+        )
+    assert (
+        session.begin.return_value.__aexit__.await_args.args[0]
+        is ConnectionRefusedError
+    )

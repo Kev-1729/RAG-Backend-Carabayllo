@@ -1,7 +1,13 @@
 import json
 from uuid import UUID
 
-from src.domain.entities import Answer, AnswerSource, ChatMessage, Query
+from src.domain.entities import (
+    Answer,
+    AnswerReference,
+    AnswerSource,
+    ChatMessage,
+    Query,
+)
 from src.domain.exceptions import LLMUnavailableError
 from src.domain.ports import LLM, ChunkRetriever, Embedder
 
@@ -94,6 +100,12 @@ class AnswerQuery:
         return Answer(
             text=ABSTENTION_MESSAGE if abstained else text,
             sources=() if abstained else tuple(sources),
+            references=()
+            if abstained
+            else tuple(
+                AnswerReference(chunk.chunk_id, rank, 1 - chunk.distance)
+                for rank, chunk in enumerate(relevant, start=1)
+            ),
             model=generation.model,
             input_tokens=generation.input_tokens,
             output_tokens=generation.output_tokens,

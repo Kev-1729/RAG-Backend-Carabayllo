@@ -86,7 +86,9 @@ async def test_history_influences_retrieval_and_is_not_a_document_source() -> No
     embedder = AsyncMock(spec=Embedder)
     retriever = AsyncMock(spec=ChunkRetriever)
     retriever.search_similar.return_value = [
-        RetrievedChunk(UUID(int=1), "Licencias", "a.pdf", 1, "Costo", 0.1)
+        RetrievedChunk(
+            UUID(int=1), "Licencias", "a.pdf", 1, "Costo", 0.1, chunk_id=UUID(int=99)
+        )
     ]
     history = (
         ChatMessage(
@@ -110,7 +112,7 @@ async def test_empty_generation_is_not_persisted() -> None:
     llm.generate.return_value = Generation("  ")
     retriever = AsyncMock(spec=ChunkRetriever)
     retriever.search_similar.return_value = [
-        RetrievedChunk(UUID(int=1), "A", "a.pdf", 1, "text", 0.1)
+        RetrievedChunk(UUID(int=1), "A", "a.pdf", 1, "text", 0.1, chunk_id=UUID(int=99))
     ]
     answerer = AnswerQuery(llm, AsyncMock(spec=Embedder), retriever, 0.5)
     repository = AsyncMock(spec=ConversationRepository)

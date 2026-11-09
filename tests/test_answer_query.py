@@ -5,7 +5,14 @@ from uuid import UUID
 import pytest
 
 from src.application.answer.answer_query import ABSTENTION_MESSAGE, AnswerQuery
-from src.domain.entities import Answer, AnswerSource, Generation, Query, RetrievedChunk
+from src.domain.entities import (
+    Answer,
+    AnswerReference,
+    AnswerSource,
+    Generation,
+    Query,
+    RetrievedChunk,
+)
 from src.domain.exceptions import (
     EmbeddingUnavailableError,
     LLMUnavailableError,
@@ -24,7 +31,15 @@ def chunk(
     document_id: UUID = DOCUMENT_ID,
     title: str = "Licencias",
 ) -> RetrievedChunk:
-    return RetrievedChunk(document_id, title, "licencias.pdf", page, content, distance)
+    return RetrievedChunk(
+        document_id,
+        title,
+        "licencias.pdf",
+        page,
+        content,
+        distance,
+        chunk_id=UUID(int=99),
+    )
 
 
 def make_query(
@@ -61,7 +76,9 @@ async def test_retrieves_top_five_and_passes_only_relevant_context() -> None:
         ],
     }
     assert answer == Answer(
-        "Presenta los requisitos [1].", (AnswerSource(DOCUMENT_ID, "Licencias", 1),)
+        "Presenta los requisitos [1].",
+        (AnswerSource(DOCUMENT_ID, "Licencias", 1),),
+        references=(AnswerReference(UUID(int=99), 1, 0.8),),
     )
 
 
@@ -85,6 +102,20 @@ async def test_sources_are_deduplicated_by_document_id_and_initial_page() -> Non
     assert [item["content"] for item in context] == ["Uno", "Dos", "Tres", "Cuatro"]
 
 
+async def test_references_preserve_chunks_rank_and_cosine_similarity() -> None:
+    from dataclasses import replace
+
+    first = replace(chunk("Uno", 0.1), chunk_id=UUID(int=10))
+    second = replace(chunk("Dos", 0.3), chunk_id=UUID(int=11))
+    use_case, _, _, _ = make_query([first, second, chunk("Descartado", 0.8)])
+    answer = await use_case.execute(Query("pregunta"))
+    assert len(answer.sources) == 1
+    assert answer.references == (
+        AnswerReference(UUID(int=10), 1, 0.9),
+        AnswerReference(UUID(int=11), 2, 0.7),
+    )
+
+
 @pytest.mark.parametrize(
     "matches", [[], [chunk(distance=0.51)], [chunk(distance=float("nan"))]]
 )
@@ -98,10 +129,12 @@ async def test_abstains_without_llm_when_no_relevant_context(
     llm.generate.assert_not_awaited()
 
 
-async def test_threshold_is_configurable_and_inclusive() -> None:
-    use_case, llm, _, _ = make_query([chunk(distance=0.7)], max_distance=0.7)
+@pytest.mark.parametrize("distance", [0.7, 1.5, 2.0])
+async def test_threshold_is_configurable_and_inclusive(distance: float) -> None:
+    use_case, llm, _, _ = make_query([chunk(distance=distance)], max_distance=distance)
     answer = await use_case.execute(Query("pregunta"))
     assert len(answer.sources) == 1
+    assert answer.references == (AnswerReference(UUID(int=99), 1, 1 - distance),)
     llm.generate.assert_awaited_once()
 
 

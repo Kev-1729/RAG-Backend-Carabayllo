@@ -57,6 +57,7 @@ async def test_search_maps_rows_to_domain_results_in_returned_order() -> None:
     document_id = UUID("00000000-0000-0000-0000-000000000001")
     rows = [
         SimpleNamespace(
+            chunk_id=UUID(int=99),
             document_id=document_id,
             title="Licencias",
             file_name="licencias.pdf",
@@ -78,6 +79,7 @@ async def test_search_maps_rows_to_domain_results_in_returned_order() -> None:
             page=3,
             content="Requisitos",
             distance=0.1,
+            chunk_id=UUID(int=99),
         ),
         RetrievedChunk(
             document_id=document_id,
@@ -86,6 +88,7 @@ async def test_search_maps_rows_to_domain_results_in_returned_order() -> None:
             page=1,
             content="Trámite",
             distance=0.3,
+            chunk_id=UUID(int=99),
         ),
     ]
 
