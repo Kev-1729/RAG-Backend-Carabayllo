@@ -7,21 +7,40 @@ import pytest
 
 from src.application.answer.answer_query import AnswerQuery
 from src.application.answer.conversation_query import Answerer, ConversationQuery
-from src.domain.entities import Answer, ChatMessage, Query, RetrievedChunk
+from src.domain.entities import Answer, ChatMessage, Generation, Query, RetrievedChunk
 from src.domain.exceptions import ConversationNotFoundError, LLMUnavailableError
 from src.domain.ports import LLM, ChunkRetriever, ConversationRepository, Embedder
 
 
-async def test_new_conversation_saves_original_question_and_answer() -> None:
+async def test_new_conversation_saves_original_question_and_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    times = iter([10.0, 10.125])
+    monkeypatch.setattr(
+        "src.application.answer.conversation_query.perf_counter", lambda: next(times)
+    )
     answerer = AsyncMock(spec=Answerer)
-    answerer.execute.return_value = Answer("respuesta")
+    answerer.execute.return_value = Answer(
+        "respuesta", model="model", input_tokens=100, output_tokens=20
+    )
     repository = AsyncMock(spec=ConversationRepository)
     repository.save_exchange.return_value = (UUID(int=1), UUID(int=2))
     answer = await ConversationQuery(answerer, repository).execute(Query("pregunta"))
     assert answer.conversation_id == UUID(int=1)
     assert answer.message_id == UUID(int=2)
     repository.history.assert_not_awaited()
-    repository.save_exchange.assert_awaited_once_with(None, "pregunta", "respuesta")
+    repository.save_exchange.assert_awaited_once_with(
+        None,
+        "pregunta",
+        Answer(
+            "respuesta",
+            model="model",
+            input_tokens=100,
+            output_tokens=20,
+            latency_ms=125,
+        ),
+    )
+    assert answer.latency_ms == 125
 
 
 async def test_continuation_loads_only_selected_conversation() -> None:
@@ -63,7 +82,7 @@ async def test_failed_answer_does_not_save_partial_turn() -> None:
 
 async def test_history_influences_retrieval_and_is_not_a_document_source() -> None:
     llm = AsyncMock(spec=LLM)
-    llm.generate.return_value = "El costo es el indicado [1]."
+    llm.generate.return_value = Generation("El costo es el indicado [1].")
     embedder = AsyncMock(spec=Embedder)
     retriever = AsyncMock(spec=ChunkRetriever)
     retriever.search_similar.return_value = [
@@ -88,7 +107,7 @@ async def test_history_influences_retrieval_and_is_not_a_document_source() -> No
 
 async def test_empty_generation_is_not_persisted() -> None:
     llm = AsyncMock(spec=LLM)
-    llm.generate.return_value = "  "
+    llm.generate.return_value = Generation("  ")
     retriever = AsyncMock(spec=ChunkRetriever)
     retriever.search_similar.return_value = [
         RetrievedChunk(UUID(int=1), "A", "a.pdf", 1, "text", 0.1)

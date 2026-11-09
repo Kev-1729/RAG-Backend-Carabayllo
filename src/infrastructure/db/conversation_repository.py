@@ -9,7 +9,7 @@ from sqlalchemy.exc import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.domain.entities import ChatMessage
+from src.domain.entities import Answer, ChatMessage
 from src.domain.exceptions import (
     ConversationNotFoundError,
     ConversationUnavailableError,
@@ -56,7 +56,7 @@ class SqlAlchemyConversationRepository:
             raise ConversationUnavailableError() from error
 
     async def save_exchange(
-        self, conversation_id: UUID | None, question: str, answer: str
+        self, conversation_id: UUID | None, question: str, answer: Answer
     ) -> tuple[UUID, UUID]:
         try:
             async with self._session_factory() as session, session.begin():
@@ -81,7 +81,11 @@ class SqlAlchemyConversationRepository:
                             id=answer_id,
                             conversation_id=conversation_id,
                             role="assistant",
-                            content=answer,
+                            content=answer.text,
+                            model=answer.model,
+                            input_tokens=answer.input_tokens,
+                            output_tokens=answer.output_tokens,
+                            latency_ms=answer.latency_ms,
                             created_at=now + timedelta(microseconds=1),
                         ),
                     ]

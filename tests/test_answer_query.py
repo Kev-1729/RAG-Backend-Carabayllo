@@ -5,7 +5,7 @@ from uuid import UUID
 import pytest
 
 from src.application.answer.answer_query import ABSTENTION_MESSAGE, AnswerQuery
-from src.domain.entities import Answer, AnswerSource, Query, RetrievedChunk
+from src.domain.entities import Answer, AnswerSource, Generation, Query, RetrievedChunk
 from src.domain.exceptions import (
     EmbeddingUnavailableError,
     LLMUnavailableError,
@@ -32,7 +32,7 @@ def make_query(
     max_distance: float = 0.5,
 ) -> tuple[AnswerQuery, AsyncMock, AsyncMock, AsyncMock]:
     llm = AsyncMock(spec=LLM)
-    llm.generate.return_value = "Presenta los requisitos [1]."
+    llm.generate.return_value = Generation("Presenta los requisitos [1].")
     embedder = AsyncMock(spec=Embedder)
     embedder.embed_query.return_value = VECTOR
     retriever = AsyncMock(spec=ChunkRetriever)
@@ -92,7 +92,9 @@ async def test_abstains_without_llm_when_no_relevant_context(
     matches: list[RetrievedChunk],
 ) -> None:
     use_case, llm, _, _ = make_query(matches)
-    assert await use_case.execute(Query("pregunta")) == Answer(ABSTENTION_MESSAGE)
+    assert await use_case.execute(Query("pregunta")) == Answer(
+        ABSTENTION_MESSAGE, input_tokens=0, output_tokens=0
+    )
     llm.generate.assert_not_awaited()
 
 
@@ -111,8 +113,24 @@ async def test_source_falls_back_to_file_name() -> None:
 
 async def test_llm_abstention_has_no_sources() -> None:
     use_case, llm, _, _ = make_query([chunk()])
-    llm.generate.return_value = f" {ABSTENTION_MESSAGE}\n"
+    llm.generate.return_value = Generation(f" {ABSTENTION_MESSAGE}\n")
     assert await use_case.execute(Query("pregunta ajena")) == Answer(ABSTENTION_MESSAGE)
+
+
+@pytest.mark.parametrize("abstains", [False, True])
+async def test_generation_usage_is_kept_even_when_model_abstains(
+    abstains: bool,
+) -> None:
+    use_case, llm, _, _ = make_query([chunk()])
+    text = ABSTENTION_MESSAGE if abstains else "Requisitos [1]."
+    llm.generate.return_value = Generation(text, "actual-model", 180, 24)
+    answer = await use_case.execute(Query("pregunta"))
+    assert (answer.model, answer.input_tokens, answer.output_tokens) == (
+        "actual-model",
+        180,
+        24,
+    )
+    assert bool(answer.sources) is not abstains
 
 
 @pytest.mark.parametrize("value", [-0.1, 2.1, float("nan"), float("inf")])

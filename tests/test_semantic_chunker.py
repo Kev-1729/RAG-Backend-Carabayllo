@@ -1,7 +1,7 @@
 import pytest
 
 from src.application.ingest.semantic_chunker import SemanticChunker
-from src.domain.entities import Page
+from src.domain.entities import Generation, Page
 from src.domain.exceptions import InvalidChunkingError, LLMUnavailableError
 
 
@@ -10,12 +10,12 @@ class FakeLLM:
         self._responses = list(responses)
         self.calls = 0
 
-    async def generate(self, system: str, prompt: str) -> str:
+    async def generate(self, system: str, prompt: str) -> Generation:
         self.calls += 1
         response = self._responses.pop(0)
         if isinstance(response, BaseException):
             raise response
-        return response
+        return Generation(response)
 
 
 def pages(*groups: tuple[str, ...]) -> tuple[Page, ...]:

@@ -47,7 +47,15 @@ def resources(monkeypatch: MonkeyPatch) -> SimpleNamespace:
     monkeypatch.setattr(
         answer, "SqlAlchemyConversationRepository", Mock(return_value=repository)
     )
+    rating_repository = SimpleNamespace(
+        message_role=AsyncMock(return_value="assistant"), save=AsyncMock()
+    )
+    rating_factory = Mock(return_value=rating_repository)
+    monkeypatch.setattr(answer, "SqlAlchemyRatingRepository", rating_factory)
     return SimpleNamespace(
+        rating_factory=rating_factory,
+        rating_repository=rating_repository,
+        session_factory=session_factory,
         engine=engine,
         llm=llm,
         embedder=embedder,
@@ -61,13 +69,17 @@ def resources(monkeypatch: MonkeyPatch) -> SimpleNamespace:
 async def test_resources_are_shared_and_closed_on_exit(
     resources: SimpleNamespace,
 ) -> None:
-    async with answer.conversation_query_resources() as use_case:
+    async with answer.answer_services() as services:
         for _ in range(2):
-            result = await use_case.execute(Query("pregunta"))
+            result = await services.conversation_query.execute(Query("pregunta"))
             assert result.text == ABSTENTION_MESSAGE
+        await services.submit_rating.execute(UUID(int=2), 5)
+        resources.rating_repository.save.assert_awaited_once_with(UUID(int=2), 5)
+        resources.llm.generate.assert_not_awaited()
         resources.engine.dispose.assert_not_awaited()
         resources.llm.aclose.assert_not_awaited()
     resources.engine_factory.assert_called_once()
+    resources.rating_factory.assert_called_once_with(resources.session_factory)
     resources.llm_factory.assert_called_once_with(
         api_key="test-anthropic", model="test-llm"
     )
@@ -85,7 +97,7 @@ async def test_partial_startup_failure_closes_created_resources(
 ) -> None:
     resources.embedder_factory.side_effect = ValueError("startup failed")
     with pytest.raises(ValueError, match="startup failed"):
-        async with answer.conversation_query_resources():
+        async with answer.answer_services():
             pytest.fail("startup should fail")
     resources.llm.aclose.assert_awaited_once()
     resources.engine.dispose.assert_awaited_once()
@@ -97,8 +109,8 @@ async def test_container_passes_configured_threshold(
     resources.retriever.search_similar.return_value = [
         RetrievedChunk(UUID(int=1), "Licencias", "licencias.pdf", 1, "Texto", 0.3)
     ]
-    async with answer.conversation_query_resources() as use_case:
-        result = await use_case.execute(Query("pregunta"))
+    async with answer.answer_services() as services:
+        result = await services.conversation_query.execute(Query("pregunta"))
     assert result.text == ABSTENTION_MESSAGE
     resources.llm.generate.assert_not_awaited()
 
@@ -108,7 +120,7 @@ async def test_engine_is_disposed_even_if_llm_close_fails(
 ) -> None:
     resources.llm.aclose.side_effect = RuntimeError("close failed")
     with pytest.raises(RuntimeError, match="close failed"):
-        async with answer.conversation_query_resources():
+        async with answer.answer_services():
             pass
     resources.engine.dispose.assert_awaited_once()
 

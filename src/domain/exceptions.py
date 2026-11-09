@@ -10,6 +10,22 @@ class ConversationUnavailableError(Exception):
     """El almacenamiento de conversaciones no está disponible."""
 
 
+class MessageNotFoundError(Exception):
+    """El mensaje solicitado no existe."""
+
+
+class InvalidRatingError(Exception):
+    """Las estrellas o el tipo de mensaje no permiten la calificación."""
+
+
+class RatingAlreadyExistsError(Exception):
+    """El mensaje ya tiene una calificación."""
+
+
+class RatingUnavailableError(Exception):
+    """El almacenamiento de calificaciones no está disponible."""
+
+
 class EmbeddingUnavailableError(Exception):
     """El servicio de embeddings no responde (caído, rate limit, red)."""
 

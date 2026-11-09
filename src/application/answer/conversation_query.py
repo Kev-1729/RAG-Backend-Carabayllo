@@ -1,4 +1,5 @@
 from dataclasses import replace
+from time import perf_counter
 from typing import Protocol
 from uuid import UUID
 
@@ -20,14 +21,18 @@ class ConversationQuery:
         self._repository = repository
 
     async def execute(self, query: Query) -> Answer:
+        started = perf_counter()
         history = (
             await self._repository.history(query.conversation_id, limit=10)
             if query.conversation_id
             else ()
         )
         answer = await self._answer_query.execute(query, history=history)
+        answer = replace(
+            answer, latency_ms=max(0, round((perf_counter() - started) * 1000))
+        )
         conversation_id, message_id = await self._repository.save_exchange(
-            query.conversation_id, query.text, answer.text
+            query.conversation_id, query.text, answer
         )
         return replace(answer, conversation_id=conversation_id, message_id=message_id)
 

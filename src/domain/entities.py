@@ -22,6 +22,18 @@ class Answer:
     sources: tuple[AnswerSource, ...] = ()
     conversation_id: UUID | None = None
     message_id: UUID | None = None
+    model: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    latency_ms: int | None = None
+
+
+@dataclass(frozen=True)
+class Generation:
+    text: str
+    model: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
 
 
 @dataclass(frozen=True)
