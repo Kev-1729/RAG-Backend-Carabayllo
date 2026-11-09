@@ -176,7 +176,7 @@ Copia `.env.example` a `.env` y completa los valores. **Nunca subas `.env` al re
 | `documents` | Un registro por PDF ingerido. El `sha256` del archivo evita ingerir el mismo documento dos veces. Si una versión nueva lo reemplaza, se conserva y `superseded_by_id` apunta a la nueva. |
 | `chunks` | Fragmentos de cada documento con su página inicial (para las citas) y su embedding (`vector(1024)`), indexado con HNSW para la búsqueda por similitud. |
 | `conversations` | Una fila por conversación. Agrupa los mensajes para la memoria conversacional. |
-| `messages` | Una fila por pregunta (`user`) o respuesta (`assistant`), en orden por `created_at`. Las respuestas pueden guardar modelo, tokens y latencia. |
+| `messages` | Una fila por pregunta (`user`) o respuesta (`assistant`), en orden por `created_at`. Las nuevas respuestas guardan latencia y, cuando interviene el LLM, modelo y tokens reportados por el proveedor. |
 | `ratings` | Calificación de 1 a 5 estrellas de una respuesta. Opcional y una sola por respuesta. |
 | `message_references` | Chunks usados en cada respuesta, con su puesto (`rank`) y similitud (`score`), para mostrar las fuentes. |
 
@@ -267,7 +267,7 @@ reescritura inteligente de consultas: un cambio de tema puede introducir ruido e
 la búsqueda. Iniciar otra conversación permite separar temas.
 
 El historial recuperado contiene texto, rol, fecha e identificador; la persistencia
-de referencias de chunks y métricas de generación sigue pendiente. No hay listado
+de referencias de chunks sigue pendiente. No hay listado
 público de conversaciones: el cliente debe conservar su UUID. El UUID no sustituye
 la protección de acceso; la aplicación sigue sin login y la política de retención
 y protección de conversaciones debe definirse antes del despliegue.
@@ -290,9 +290,47 @@ respuesta ya calificada, **409**; y la indisponibilidad de almacenamiento, **503
 La calificación no se modifica ni se elimina. La restricción de una por respuesta
 también se aplica a solicitudes simultáneas mediante la clave primaria existente.
 
-Se reutiliza `ratings`, sin migraciones ni llamadas a Voyage o Claude. Las métricas
-de costo y latencia se implementarán por separado. La regla es una calificación por
+Se reutiliza `ratings`, sin migraciones ni llamadas a Voyage o Claude. Calificar no
+modifica el consumo ni la latencia de la respuesta. La regla es una calificación por
 mensaje, no por persona; no se añade autenticación en este cambio.
+
+### Consumo y latencia de respuestas
+
+Se guardan los campos existentes de la fila `assistant` en `messages`:
+
+| Campo | Qué registra |
+| --- | --- |
+| `model` | Modelo devuelto por Anthropic, no solo el alias configurado. |
+| `input_tokens` | Tokens de entrada informados en `usage.input_tokens`. |
+| `output_tokens` | Tokens de salida informados en `usage.output_tokens`. |
+| `latency_ms` | Tiempo de procesamiento de la consulta, en milisegundos. |
+
+La latencia se mide con un reloj monotónico desde antes de cargar el historial
+hasta obtener la respuesta: incluye historial, Voyage, búsqueda y generación,
+con las esperas/reintentos del SDK que ocurran dentro de esas etapas. Excluye el
+guardado final de los mensajes, la serialización HTTP y la red del navegador.
+
+Si no hay contexto relevante y no se llama al LLM, se guarda `model = null` y
+ambos contadores de tokens en `0`, además de la latencia. Eso no significa que
+Voyage haya sido gratuito. Si Claude responde con abstención, se conserva el
+consumo que reportó. Los mensajes `user` mantienen estos campos en `null`.
+No se rellenan retrospectivamente los registros antiguos ni se persisten métricas
+de solicitudes fallidas. Si falla el guardado, también se pierden las métricas
+de esa solicitud, aunque el proveedor haya consumido tokens.
+
+Estos datos permiten estimar el costo de la generación con las tarifas del modelo,
+pero no constituyen una factura ni incluyen consumo de Voyage, ingesta o solicitudes
+fallidas. Tampoco desglosan tarifas especiales de caché. No se guarda un importe
+monetario ni se fijan precios en el código. No se requieren migraciones y el JSON
+público de `/query` y del historial mantiene su contrato.
+
+Puedes consultar una respuesta en Supabase, tabla `messages`, usando su `message_id`:
+
+```sql
+SELECT id, model, input_tokens, output_tokens, latency_ms
+FROM messages
+WHERE id = 'UUID de la respuesta';
+```
 
 ### Ingesta por CLI
 
@@ -383,7 +421,7 @@ Estas mismas verificaciones, más `pytest`, corren en GitHub Actions en cada pul
 - [x] Memoria conversacional con historial limitado (pendiente de validación con servicios reales)
 - [x] Calificación de respuestas de 1 a 5 estrellas (pendiente de validación con Supabase real)
 - [ ] Métricas de exactitud de las respuestas
-- [ ] Registro de consumo de tokens y latencia para estimar costos
+- [x] Registro de consumo de tokens y latencia para estimar costos (consumo real de Claude pendiente de validación)
 - [ ] Evaluación automática del pipeline
 - [ ] Streaming de respuestas
 - [ ] Autenticación

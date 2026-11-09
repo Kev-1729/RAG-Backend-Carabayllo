@@ -1,7 +1,15 @@
 from typing import Protocol
 from uuid import UUID
 
-from src.domain.entities import ChatMessage, Chunk, Document, Page, RetrievedChunk
+from src.domain.entities import (
+    Answer,
+    ChatMessage,
+    Chunk,
+    Document,
+    Generation,
+    Page,
+    RetrievedChunk,
+)
 
 
 class RatingRepository(Protocol):
@@ -16,12 +24,12 @@ class ConversationRepository(Protocol):
     ) -> tuple[ChatMessage, ...]: ...
 
     async def save_exchange(
-        self, conversation_id: UUID | None, question: str, answer: str
+        self, conversation_id: UUID | None, question: str, answer: Answer
     ) -> tuple[UUID, UUID]: ...
 
 
 class LLM(Protocol):
-    async def generate(self, system: str, prompt: str) -> str: ...
+    async def generate(self, system: str, prompt: str) -> Generation: ...
 
 
 class PdfLoader(Protocol):

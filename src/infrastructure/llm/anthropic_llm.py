@@ -1,5 +1,6 @@
 import anthropic
 
+from src.domain.entities import Generation
 from src.domain.exceptions import LLMUnavailableError
 
 
@@ -11,7 +12,7 @@ class AnthropicLLM:
     async def aclose(self) -> None:
         await self._client.close()
 
-    async def generate(self, system: str, prompt: str) -> str:
+    async def generate(self, system: str, prompt: str) -> Generation:
         try:
             response = await self._client.messages.create(
                 model=self._model,
@@ -27,4 +28,9 @@ class AnthropicLLM:
         ) as e:
             raise LLMUnavailableError() from e
 
-        return "".join(b.text for b in response.content if b.type == "text")
+        return Generation(
+            text="".join(b.text for b in response.content if b.type == "text"),
+            model=response.model,
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+        )

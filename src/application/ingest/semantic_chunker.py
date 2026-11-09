@@ -42,7 +42,7 @@ class SemanticChunker:
         prompt = _user_prompt(numbered)
         for _ in range(2):
             raw = await self._llm.generate(system=SYSTEM_PROMPT, prompt=prompt)
-            parsed = _parse_ranges(raw, count)
+            parsed = _parse_ranges(raw.text, count)
             if parsed is not None:
                 return parsed
         raise InvalidChunkingError("el modelo no devolvió grupos de párrafos válidos")

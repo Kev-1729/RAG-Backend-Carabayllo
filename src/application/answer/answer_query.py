@@ -55,7 +55,7 @@ class AnswerQuery:
             chunk for chunk in matches if 0 <= chunk.distance <= self._max_distance
         ]
         if not relevant:
-            return Answer(text=ABSTENTION_MESSAGE)
+            return Answer(text=ABSTENTION_MESSAGE, input_tokens=0, output_tokens=0)
 
         sources: list[AnswerSource] = []
         source_numbers: dict[tuple[UUID, int], int] = {}
@@ -86,9 +86,15 @@ class AnswerQuery:
                 {"role": m.role, "content": m.content[:2000]} for m in history[-10:]
             ]
         prompt = json.dumps(payload, ensure_ascii=False)
-        text = await self._llm.generate(system=SYSTEM_PROMPT, prompt=prompt)
+        generation = await self._llm.generate(system=SYSTEM_PROMPT, prompt=prompt)
+        text = generation.text
         if not text.strip():
             raise LLMUnavailableError()
-        if text.strip() == ABSTENTION_MESSAGE:
-            return Answer(text=ABSTENTION_MESSAGE)
-        return Answer(text=text, sources=tuple(sources))
+        abstained = text.strip() == ABSTENTION_MESSAGE
+        return Answer(
+            text=ABSTENTION_MESSAGE if abstained else text,
+            sources=() if abstained else tuple(sources),
+            model=generation.model,
+            input_tokens=generation.input_tokens,
+            output_tokens=generation.output_tokens,
+        )
