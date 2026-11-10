@@ -255,6 +255,9 @@ en la transacción habitual. El `Answer` final se emite después del guardado e
 incluye los identificadores de conversación y mensaje. Un error o una
 cancelación durante la generación descartan el turno parcial.
 
+Por HTTP, `POST /query` espera a que termine el turno y devuelve una única
+respuesta JSON.
+
 ### Conversaciones y memoria
 
 `POST /query` acepta `conversation_id` opcional. Sin él, guarda una conversación
