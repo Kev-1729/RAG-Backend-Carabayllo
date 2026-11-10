@@ -40,3 +40,7 @@ class InvalidDocumentError(Exception):
 
 class InvalidChunkingError(Exception):
     """El LLM no devolvió grupos de párrafos válidos."""
+
+
+class DocumentReplacementError(Exception):
+    """El documento solicitado no permite este reemplazo."""

@@ -107,7 +107,15 @@ async def test_container_passes_configured_threshold(
     resources: SimpleNamespace,
 ) -> None:
     resources.retriever.search_similar.return_value = [
-        RetrievedChunk(UUID(int=1), "Licencias", "licencias.pdf", 1, "Texto", 0.3)
+        RetrievedChunk(
+            UUID(int=1),
+            "Licencias",
+            "licencias.pdf",
+            1,
+            "Texto",
+            0.3,
+            chunk_id=UUID(int=99),
+        )
     ]
     async with answer.answer_services() as services:
         result = await services.conversation_query.execute(Query("pregunta"))

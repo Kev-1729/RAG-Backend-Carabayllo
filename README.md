@@ -178,7 +178,7 @@ Copia `.env.example` a `.env` y completa los valores. **Nunca subas `.env` al re
 | `conversations` | Una fila por conversación. Agrupa los mensajes para la memoria conversacional. |
 | `messages` | Una fila por pregunta (`user`) o respuesta (`assistant`), en orden por `created_at`. Las nuevas respuestas guardan latencia y, cuando interviene el LLM, modelo y tokens reportados por el proveedor. |
 | `ratings` | Calificación de 1 a 5 estrellas de una respuesta. Opcional y una sola por respuesta. |
-| `message_references` | Chunks usados en cada respuesta, con su puesto (`rank`) y similitud (`score`), para mostrar las fuentes. |
+| `message_references` | Chunks del contexto de respuestas sin abstención, con su puesto (`rank`) y similitud coseno (`score`). No certifican citas utilizadas por el modelo. |
 
 El detalle de columnas está en [`src/infrastructure/db/models.py`](src/infrastructure/db/models.py) y en [`migrations/versions/`](migrations/versions/). Todas las tablas tienen **RLS activado** para que la Data API de Supabase no pueda acceder a ellas; el backend se conecta directo a PostgreSQL.
 
@@ -266,11 +266,45 @@ los fragmentos recuperados. Es contexto limitado, no memoria ilimitada ni una
 reescritura inteligente de consultas: un cambio de tema puede introducir ruido en
 la búsqueda. Iniciar otra conversación permite separar temas.
 
-El historial recuperado contiene texto, rol, fecha e identificador; la persistencia
-de referencias de chunks sigue pendiente. No hay listado
+Cada respuesta con contexto y sin abstención conserva en `message_references` los UUID de los chunks
+enviados al modelo, su posición desde 1 entre los fragmentos aceptados y su similitud
+coseno (`score = 1 - distance`, entre -1 y 1, no una probabilidad). Un valor negativo
+es válido si el umbral configurado admite distancias mayores que 1. Se guardan en la misma
+transacción que los mensajes. Dos chunks de una página conservan referencias
+distintas aunque aparezcan como una sola fuente HTTP. Las abstenciones no guardan
+referencias. Esto registra el contexto proporcionado; no certifica qué afirmaciones
+utilizó el modelo ni reconstruye referencias para mensajes anteriores.
+
+El historial recuperado contiene texto, rol, fecha e identificador; las referencias
+se conservan en base de datos y no se agregan al contrato HTTP del historial. No hay listado
 público de conversaciones: el cliente debe conservar su UUID. El UUID no sustituye
 la protección de acceso; la aplicación sigue sin login y la política de retención
 y protección de conversaciones debe definirse antes del despliegue.
+
+### Reemplazo de documentos
+
+La ingesta habitual sigue omitiendo archivos cuyo SHA-256 ya existe, incluso si
+pertenece a una versión histórica reemplazada; no reactiva versiones anteriores.
+Para reemplazar
+una versión, coloca solamente el PDF nuevo en una carpeta y pasa el UUID del
+documento vigente explícitamente:
+
+```powershell
+.\.venv\Scripts\python.exe -m src.interfaces.cli.ingest "ruta/carpeta-nueva-version" --replace UUID_DEL_DOCUMENTO_VIGENTE
+```
+
+El UUID se obtiene de `documents.id` en la base de desarrollo. No se deducen
+reemplazos por nombre ni título. La versión nueva y sus chunks se guardan junto
+con `superseded_by_id` de la anterior en una sola transacción, bloqueando la fila
+anterior para impedir reemplazos simultáneos. Una versión inexistente, ya
+reemplazada o un contenido que ya existe se reportan como fallo. Si la extracción,
+el chunking, los embeddings o el guardado fallan, la versión anterior sigue vigente.
+Los errores de proveedores interrumpen la ejecución como en la ingesta habitual.
+
+Se conservan todos los documentos, chunks y referencias históricos. Las búsquedas
+nuevas excluyen las versiones reemplazadas; el historial existente no se reescribe.
+Una cadena A → B → C conserva sus versiones; para el siguiente reemplazo se indica
+el UUID de C. No requiere migración ni reingesta de los documentos existentes.
 
 ### Calificaciones de respuestas
 

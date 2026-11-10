@@ -57,4 +57,11 @@ class ChunkRetriever(Protocol):
 class DocumentRepository(Protocol):
     async def exists(self, sha256: str) -> bool: ...
 
-    async def save(self, document: Document, chunks: list[Chunk]) -> None: ...
+    async def save(
+        self, document: Document, chunks: list[Chunk], *, supersedes: UUID | None = None
+    ) -> None:
+        """Guarda documento y chunks, y reemplaza la versión indicada atómicamente.
+
+        El destino debe existir y estar vigente. Nunca elimina versiones anteriores.
+        """
+        ...

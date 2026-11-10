@@ -1,17 +1,29 @@
 import argparse
 import asyncio
 from pathlib import Path
+from uuid import UUID
 
 from src.application.ingest.ingest_documents import IngestionReport, SourceFile
 from src.container.ingest import ingest_documents
 
 
-async def ingest(folder: Path) -> IngestionReport:
+async def ingest(folder: Path, supersedes: UUID | None = None) -> IngestionReport:
     files: list[SourceFile] = []
     unreadable: list[tuple[str, str]] = []
-    for path in sorted(folder.glob("*.pdf")):
+    paths = sorted(folder.glob("*.pdf"))
+    if supersedes is not None and len(paths) != 1:
+        return IngestionReport(
+            failed=[
+                (str(folder), "--replace requiere exactamente un PDF en la carpeta")
+            ]
+        )
+    for path in paths:
         try:
-            files.append(SourceFile(name=path.name, content=path.read_bytes()))
+            files.append(
+                SourceFile(
+                    name=path.name, content=path.read_bytes(), supersedes=supersedes
+                )
+            )
         except OSError as error:
             unreadable.append((path.name, f"no se pudo leer el archivo: {error}"))
     async with ingest_documents() as use_case:
@@ -37,11 +49,17 @@ def main() -> int:
         description="Ingiere los PDF de una carpeta en la base de datos."
     )
     parser.add_argument("folder", type=Path, help="carpeta con los PDF a ingerir")
+    parser.add_argument(
+        "--replace",
+        type=UUID,
+        metavar="DOCUMENT_ID",
+        help="UUID de la versión vigente a reemplazar; requiere una carpeta con un solo PDF",
+    )
     args = parser.parse_args()
     if not args.folder.is_dir():
         parser.error(f"no existe la carpeta: {args.folder}")
 
-    report = asyncio.run(ingest(args.folder))
+    report = asyncio.run(ingest(args.folder, args.replace))
     print_report(report)
     return 1 if report.failed else 0
 

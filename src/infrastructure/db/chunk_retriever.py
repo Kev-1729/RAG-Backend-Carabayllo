@@ -27,6 +27,7 @@ class SqlAlchemyChunkRetriever:
                 DocumentModel.id.label("document_id"),
                 DocumentModel.title,
                 DocumentModel.file_name,
+                ChunkModel.id.label("chunk_id"),
                 ChunkModel.page,
                 ChunkModel.content,
                 distance.label("distance"),
@@ -41,6 +42,7 @@ class SqlAlchemyChunkRetriever:
                 result = await session.execute(statement)
                 return [
                     RetrievedChunk(
+                        chunk_id=row.chunk_id,
                         document_id=row.document_id,
                         title=row.title,
                         file_name=row.file_name,

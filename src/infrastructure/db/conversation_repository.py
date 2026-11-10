@@ -14,7 +14,11 @@ from src.domain.exceptions import (
     ConversationNotFoundError,
     ConversationUnavailableError,
 )
-from src.infrastructure.db.models import ConversationModel, MessageModel
+from src.infrastructure.db.models import (
+    ConversationModel,
+    MessageModel,
+    MessageReferenceModel,
+)
 
 _UNAVAILABLE = (
     OperationalError,
@@ -90,6 +94,17 @@ class SqlAlchemyConversationRepository:
                         ),
                     ]
                 )
+                if answer.references:
+                    await session.flush()
+                    session.add_all(
+                        MessageReferenceModel(
+                            message_id=answer_id,
+                            chunk_id=reference.chunk_id,
+                            rank=reference.rank,
+                            score=reference.score,
+                        )
+                        for reference in answer.references
+                    )
             return conversation_id, answer_id
         except _UNAVAILABLE as error:
             raise ConversationUnavailableError() from error

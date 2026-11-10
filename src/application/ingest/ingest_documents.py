@@ -1,9 +1,14 @@
 import hashlib
 from dataclasses import dataclass, field
 from typing import Protocol
+from uuid import UUID
 
 from src.domain.entities import Chunk, Document, Page
-from src.domain.exceptions import InvalidChunkingError, InvalidDocumentError
+from src.domain.exceptions import (
+    DocumentReplacementError,
+    InvalidChunkingError,
+    InvalidDocumentError,
+)
 from src.domain.ports import DocumentRepository, Embedder, PdfLoader
 
 
@@ -11,6 +16,7 @@ from src.domain.ports import DocumentRepository, Embedder, PdfLoader
 class SourceFile:
     name: str
     content: bytes
+    supersedes: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -54,6 +60,14 @@ class IngestDocuments:
         for source in files:
             sha256 = hashlib.sha256(source.content).hexdigest()
             if await self._repository.exists(sha256):
+                if source.supersedes is not None:
+                    report.failed.append(
+                        (
+                            source.name,
+                            "el contenido ya existe; no se reemplazó ningún documento",
+                        )
+                    )
+                    continue
                 report.skipped.append(source.name)
                 continue
 
@@ -87,7 +101,13 @@ class IngestDocuments:
                     zip(pieces, embeddings, strict=True)
                 )
             ]
-            await self._repository.save(document, chunks)
+            try:
+                await self._repository.save(
+                    document, chunks, supersedes=source.supersedes
+                )
+            except DocumentReplacementError as error:
+                report.failed.append((source.name, str(error)))
+                continue
             report.ingested.append(
                 IngestedDocument(
                     name=document.file_name,

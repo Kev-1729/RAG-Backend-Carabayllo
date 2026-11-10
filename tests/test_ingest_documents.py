@@ -1,8 +1,14 @@
 import hashlib
+from unittest.mock import AsyncMock, patch
+from uuid import UUID
 
 from src.application.ingest.ingest_documents import IngestDocuments, SourceFile
 from src.domain.entities import Chunk, Document, Page
-from src.domain.exceptions import InvalidChunkingError, InvalidDocumentError
+from src.domain.exceptions import (
+    DocumentReplacementError,
+    InvalidChunkingError,
+    InvalidDocumentError,
+)
 
 DAMAGED = b"damaged"
 EMPTY = b"empty-pdf"
@@ -42,7 +48,9 @@ class FakeRepository:
     async def exists(self, sha256: str) -> bool:
         return sha256 in self.existing
 
-    async def save(self, document: Document, chunks: list[Chunk]) -> None:
+    async def save(
+        self, document: Document, chunks: list[Chunk], *, supersedes: UUID | None = None
+    ) -> None:
         self.existing.add(document.sha256)
         self.saved[document.file_name] = chunks
         self.saved_titles[document.file_name] = document.title
@@ -167,3 +175,45 @@ async def test_invalid_chunking_does_not_stop_the_rest() -> None:
         ("tributos.pdf", "el modelo no devolvió grupos de párrafos válidos")
     ]
     assert repository.saved == {}
+
+
+async def test_replacement_passes_explicit_target_to_repository() -> None:
+    repository = FakeRepository()
+    with patch.object(repository, "save", new_callable=AsyncMock) as save_mock:
+        report = await make_use_case(tributos_loader(), repository).execute(
+            [SourceFile("nueva.pdf", TRIBUTOS, supersedes=UUID(int=1))]
+        )
+    assert len(report.ingested) == 1
+    save_mock.assert_awaited_once()
+    assert save_mock.await_args is not None
+    assert save_mock.await_args.kwargs == {"supersedes": UUID(int=1)}
+
+
+async def test_existing_content_cannot_silently_skip_replacement() -> None:
+    repository = FakeRepository(existing={_sha(TRIBUTOS)})
+    loader = tributos_loader()
+    report = await make_use_case(loader, repository).execute(
+        [SourceFile("nueva.pdf", TRIBUTOS, supersedes=UUID(int=1))]
+    )
+    assert len(report.failed) == 1
+    assert report.skipped == []
+    assert loader.loaded == []
+    assert repository.saved == {}
+
+
+async def test_rejected_replacement_is_reported_and_next_file_is_ingested() -> None:
+    repository = FakeRepository()
+    with patch.object(
+        repository,
+        "save",
+        new_callable=AsyncMock,
+        side_effect=[DocumentReplacementError("ya reemplazado"), None],
+    ):
+        report = await make_use_case(tributos_loader(), repository).execute(
+            [
+                SourceFile("nueva.pdf", TRIBUTOS, supersedes=UUID(int=1)),
+                SourceFile("otra.pdf", TRIBUTOS),
+            ]
+        )
+    assert report.failed == [("nueva.pdf", "ya reemplazado")]
+    assert [d.name for d in report.ingested] == ["otra.pdf"]

@@ -98,8 +98,24 @@ def _rag() -> tuple[ConversationQuery, AsyncMock, AsyncMock, AsyncMock, AsyncMoc
     embedder.embed_query.return_value = (1.0, 0.0)
     retriever = AsyncMock(spec=ChunkRetriever)
     retriever.search_similar.return_value = [
-        RetrievedChunk(UUID(int=1), "Licencias", "licencias.pdf", 2, "Formulario", 0.1),
-        RetrievedChunk(UUID(int=1), "Licencias", "licencias.pdf", 2, "Anexo", 0.2),
+        RetrievedChunk(
+            UUID(int=1),
+            "Licencias",
+            "licencias.pdf",
+            2,
+            "Formulario",
+            0.1,
+            chunk_id=UUID(int=99),
+        ),
+        RetrievedChunk(
+            UUID(int=1),
+            "Licencias",
+            "licencias.pdf",
+            2,
+            "Anexo",
+            0.2,
+            chunk_id=UUID(int=99),
+        ),
     ]
     repository = AsyncMock(spec=ConversationRepository, wraps=MemoryConversations())
     return (
