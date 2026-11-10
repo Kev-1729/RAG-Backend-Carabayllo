@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from typing import Protocol
 from uuid import UUID
 
@@ -30,6 +31,16 @@ class ConversationRepository(Protocol):
 
 class LLM(Protocol):
     async def generate(self, system: str, prompt: str) -> Generation: ...
+
+    def stream(
+        self, system: str, prompt: str
+    ) -> AsyncGenerator[str | Generation, None]:
+        """Texto incremental seguido de una Generation final, solo al completar.
+
+        El texto final coincide con los fragmentos concatenados. El consumidor debe
+        cerrar el generador al interrumpir la lectura para liberar la conexión.
+        """
+        ...
 
 
 class PdfLoader(Protocol):

@@ -233,6 +233,25 @@ Sin fragmentos relevantes, se devuelve una respuesta fija en español con `sourc
 
 El [lifespan de FastAPI](https://fastapi.tiangolo.com/advanced/events/) obtiene el caso de uso desde `container`, crea el engine y los adaptadores una vez por instancia de aplicación y cierra el engine y el cliente LLM al apagarla. Cada búsqueda usa su propia sesión de base de datos.
 
+### Streaming interno (en desarrollo)
+
+`LLM.stream(system, prompt)` entrega fragmentos `str` y una única `Generation`
+final con el texto completo, modelo y tokens reportados por el proveedor.
+`AnswerQuery.stream(query, history=...)` entrega texto provisional y termina con
+un `Answer` que aplica las mismas reglas de contexto, fuentes, referencias y
+abstención que `execute`. Sin contexto relevante, devuelve la abstención sin
+invocar al LLM. Las fuentes definitivas se conocen al finalizar: el modelo puede
+abstenerse después de recibir contexto.
+
+Un stream truncado, un límite de salida o un error no producen resultado final.
+Al consumir parcialmente estos generadores se debe usar `contextlib.aclosing`
+o llamar a `aclose()` para liberar la conexión del proveedor. Los fragmentos
+anteriores a un error son provisionales. Los tokens se obtienen del resultado
+final, no se estiman contando fragmentos.
+
+Este cambio es interno: todavía no persiste turnos en streaming ni expone un
+endpoint SSE. `POST /query` mantiene su contrato y su flujo habitual.
+
 ### Conversaciones y memoria
 
 `POST /query` acepta `conversation_id` opcional. Sin él, guarda una conversación

@@ -1,4 +1,6 @@
 import json
+from collections.abc import AsyncGenerator
+from contextlib import aclosing
 from uuid import UUID
 
 from src.domain.entities import (
@@ -6,7 +8,9 @@ from src.domain.entities import (
     AnswerReference,
     AnswerSource,
     ChatMessage,
+    Generation,
     Query,
+    RetrievedChunk,
 )
 from src.domain.exceptions import LLMUnavailableError
 from src.domain.ports import LLM, ChunkRetriever, Embedder
@@ -52,6 +56,46 @@ class AnswerQuery:
     async def execute(
         self, query: Query, history: tuple[ChatMessage, ...] = ()
     ) -> Answer:
+        prompt, relevant, sources = await self._prepare(query, history)
+        if not relevant:
+            return Answer(text=ABSTENTION_MESSAGE, input_tokens=0, output_tokens=0)
+        generation = await self._llm.generate(system=SYSTEM_PROMPT, prompt=prompt)
+        return self._answer(generation, relevant, sources)
+
+    async def stream(
+        self, query: Query, history: tuple[ChatMessage, ...] = ()
+    ) -> AsyncGenerator[str | Answer, None]:
+        """Texto provisional seguido de Answer final; no persiste el turno.
+
+        El resultado final es autoritativo para fuentes y abstención. Ante error
+        o cancelación no se emite Answer. Cerrar con aclose si se deja de consumir.
+        """
+        prompt, relevant, sources = await self._prepare(query, history)
+        if not relevant:
+            yield ABSTENTION_MESSAGE
+            yield Answer(text=ABSTENTION_MESSAGE, input_tokens=0, output_tokens=0)
+            return
+        parts: list[str] = []
+        generation = None
+        async with aclosing(
+            self._llm.stream(system=SYSTEM_PROMPT, prompt=prompt)
+        ) as stream:
+            async for event in stream:
+                if generation is not None:
+                    raise LLMUnavailableError()
+                if isinstance(event, str):
+                    if event:
+                        parts.append(event)
+                        yield event
+                else:
+                    generation = event
+        if generation is None or generation.text != "".join(parts):
+            raise LLMUnavailableError()
+        yield self._answer(generation, relevant, sources)
+
+    async def _prepare(
+        self, query: Query, history: tuple[ChatMessage, ...]
+    ) -> tuple[str, list[RetrievedChunk], tuple[AnswerSource, ...]]:
         search_text = "\n".join(
             [m.content for m in history[-10:] if m.role == "user"] + [query.text]
         )
@@ -61,7 +105,7 @@ class AnswerQuery:
             chunk for chunk in matches if 0 <= chunk.distance <= self._max_distance
         ]
         if not relevant:
-            return Answer(text=ABSTENTION_MESSAGE, input_tokens=0, output_tokens=0)
+            return "", relevant, ()
 
         sources: list[AnswerSource] = []
         source_numbers: dict[tuple[UUID, int], int] = {}
@@ -91,8 +135,14 @@ class AnswerQuery:
             payload["history"] = [
                 {"role": m.role, "content": m.content[:2000]} for m in history[-10:]
             ]
-        prompt = json.dumps(payload, ensure_ascii=False)
-        generation = await self._llm.generate(system=SYSTEM_PROMPT, prompt=prompt)
+        return json.dumps(payload, ensure_ascii=False), relevant, tuple(sources)
+
+    @staticmethod
+    def _answer(
+        generation: Generation,
+        relevant: list[RetrievedChunk],
+        sources: tuple[AnswerSource, ...],
+    ) -> Answer:
         text = generation.text
         if not text.strip():
             raise LLMUnavailableError()
