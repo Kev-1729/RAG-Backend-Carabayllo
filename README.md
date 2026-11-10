@@ -233,7 +233,30 @@ Sin fragmentos relevantes, se devuelve una respuesta fija en español con `sourc
 
 El [lifespan de FastAPI](https://fastapi.tiangolo.com/advanced/events/) obtiene el caso de uso desde `container`, crea el engine y los adaptadores una vez por instancia de aplicación y cierra el engine y el cliente LLM al apagarla. Cada búsqueda usa su propia sesión de base de datos.
 
-### Streaming interno (en desarrollo)
+### Respuestas en streaming
+
+`POST /query/stream` acepta el mismo JSON que `POST /query`, con `question`
+y un `conversation_id` opcional. Devuelve eventos SSE con datos en JSON.
+
+```bash
+curl -N http://localhost:8000/query/stream \
+  -H 'Content-Type: application/json' \
+  --data '{"question":"¿Cómo solicito una licencia de funcionamiento?"}'
+```
+
+| Evento | Datos |
+| --- | --- |
+| `delta` | `text` contiene el fragmento provisional. |
+| `complete` | `answer`, `sources`, `conversation_id` y `message_id` del turno guardado. |
+| `error` | `code` y `detail` describen un fallo después de iniciar la respuesta. |
+
+Una petición inválida, una conversación inexistente o un fallo de proveedor
+antes del primer evento devuelven HTTP 422, 404 o 503, respectivamente. Una
+vez iniciada la respuesta SSE, un fallo termina el stream con `error`. Usa
+`complete.answer` como texto definitivo y los IDs de ese evento para continuar
+la conversación o calificar la respuesta.
+
+### Streaming en aplicación
 
 `LLM.stream(system, prompt)` entrega fragmentos `str` y una única `Generation`
 final con el texto completo, modelo y tokens reportados por el proveedor.
