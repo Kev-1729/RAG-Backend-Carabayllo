@@ -249,8 +249,11 @@ o llamar a `aclose()` para liberar la conexión del proveedor. Los fragmentos
 anteriores a un error son provisionales. Los tokens se obtienen del resultado
 final, no se estiman contando fragmentos.
 
-Este cambio es interno: todavía no persiste turnos en streaming ni expone un
-endpoint SSE. `POST /query` mantiene su contrato y su flujo habitual.
+`ConversationQuery.stream(query)` carga el historial y entrega texto provisional.
+Tras completar la generación, guarda el turno con sus referencias y métricas
+en la transacción habitual. El `Answer` final se emite después del guardado e
+incluye los identificadores de conversación y mensaje. Un error o una
+cancelación durante la generación descartan el turno parcial.
 
 ### Conversaciones y memoria
 
