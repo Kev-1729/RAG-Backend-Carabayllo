@@ -18,6 +18,7 @@ from src.domain.exceptions import (
     RatingUnavailableError,
     RetrievalUnavailableError,
 )
+from src.interfaces.request_limits import RequestBodyLimit
 from src.interfaces.routers import conversations, query, ratings
 
 
@@ -26,14 +27,17 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     async with answer_services() as services:
         application.state.conversation_query = services.conversation_query
         application.state.submit_rating = services.submit_rating
+        application.state.request_limiter = services.request_limiter
         try:
             yield
         finally:
             del application.state.conversation_query
             del application.state.submit_rating
+            del application.state.request_limiter
 
 
 def create_application() -> FastAPI:
+    settings = get_settings()
     application = FastAPI(
         title="RAG Carabayllo",
         description="Sistema de RAG para la Municipalidad de Carabayllo",
@@ -42,8 +46,15 @@ def create_application() -> FastAPI:
     )
 
     application.add_middleware(
+        RequestBodyLimit,
+        max_bytes=settings.api_max_body_bytes,
+        timeout=settings.api_body_timeout_seconds,
+    )
+    application.state.api_requests_per_minute = settings.api_requests_per_minute
+    application.state.api_queries_per_minute = settings.api_queries_per_minute
+    application.add_middleware(
         CORSMiddleware,
-        allow_origins=get_settings().parsed_cors_origins,
+        allow_origins=settings.parsed_cors_origins,
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )

@@ -6,6 +6,7 @@ from src.application.answer.answer_query import AnswerQuery
 from src.application.answer.conversation_query import ConversationQuery
 from src.application.answer.submit_rating import SubmitRating
 from src.config import get_settings
+from src.domain.ports import RequestLimiter
 from src.infrastructure.db.chunk_retriever import SqlAlchemyChunkRetriever
 from src.infrastructure.db.conversation_repository import (
     SqlAlchemyConversationRepository,
@@ -13,6 +14,7 @@ from src.infrastructure.db.conversation_repository import (
 from src.infrastructure.db.database import create_engine, create_session_factory
 from src.infrastructure.db.models import EMBEDDING_DIMENSION
 from src.infrastructure.db.rating_repository import SqlAlchemyRatingRepository
+from src.infrastructure.db.request_limiter import SqlAlchemyRequestLimiter
 from src.infrastructure.embeddings.voyage_embedder import VoyageEmbedder
 from src.infrastructure.llm.anthropic_llm import AnthropicLLM
 
@@ -21,6 +23,7 @@ from src.infrastructure.llm.anthropic_llm import AnthropicLLM
 class AnswerServices:
     conversation_query: ConversationQuery
     submit_rating: SubmitRating
+    request_limiter: RequestLimiter
 
 
 @asynccontextmanager
@@ -50,4 +53,5 @@ async def answer_services() -> AsyncIterator[AnswerServices]:
                 answer_query, SqlAlchemyConversationRepository(session_factory)
             ),
             SubmitRating(SqlAlchemyRatingRepository(session_factory)),
+            SqlAlchemyRequestLimiter(session_factory),
         )

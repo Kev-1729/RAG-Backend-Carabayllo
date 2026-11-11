@@ -14,6 +14,7 @@ from src import config
 from src.application.answer.answer_query import ABSTENTION_MESSAGE, AnswerQuery
 from src.application.answer.conversation_query import ConversationQuery
 from src.application.answer.submit_rating import SubmitRating
+from src.container import security
 from src.container.answer import AnswerServices
 from src.domain.entities import Answer, ChatMessage, Generation, RetrievedChunk
 from src.domain.exceptions import (
@@ -29,8 +30,17 @@ from src.domain.ports import (
     ConversationRepository,
     Embedder,
     RatingRepository,
+    RequestLimiter,
 )
+from src.infrastructure.conversation_tokens import HmacConversationTokens
 from src.interfaces.schemas.query import QueryResponse
+
+TEST_ACCESS_SECRET = "test-only-access-secret-32-characters"
+
+
+def token_headers(identifier: str | UUID) -> dict[str, str]:
+    token = HmacConversationTokens(TEST_ACCESS_SECRET).issue(UUID(str(identifier)))
+    return {"X-Conversation-Token": token}
 
 
 class MemoryConversations:
@@ -66,6 +76,7 @@ def _client(
     submit_rating: SubmitRating | None = None,
 ) -> TestClient:
     settings = config.Settings(
+        api_access_secret=SecretStr(TEST_ACCESS_SECRET),
         _env_file=None,  # type: ignore[call-arg]
         anthropic_api_key=SecretStr("test"),
         llm_model="test-model",
@@ -77,18 +88,24 @@ def _client(
         retrieval_max_distance=0.5,
     )
     monkeypatch.setattr(config, "get_settings", lambda: settings)
+    monkeypatch.setattr(security, "get_settings", lambda: settings)
+    security.get_conversation_tokens.cache_clear()
     from src import main
 
     monkeypatch.setattr(main, "get_settings", lambda: settings)
 
     @asynccontextmanager
     async def fake_resources() -> AsyncIterator[AnswerServices]:
+        limiter = AsyncMock(spec=RequestLimiter)
+        limiter.allow.return_value = True
         yield AnswerServices(
-            use_case, submit_rating or SubmitRating(AsyncMock(spec=RatingRepository))
+            use_case,
+            submit_rating or SubmitRating(AsyncMock(spec=RatingRepository)),
+            limiter,
         )
 
     monkeypatch.setattr(main, "answer_services", fake_resources)
-    return TestClient(main.create_application())
+    return TestClient(main.create_application(), headers=token_headers(UUID(int=1)))
 
 
 def _rag() -> tuple[ConversationQuery, AsyncMock, AsyncMock, AsyncMock, AsyncMock]:
@@ -170,6 +187,7 @@ def test_http_continuation_persists_and_recovers_separate_conversations(
     with client:
         first = client.post("/query", json={"question": "Licencia de bodega"}).json()
         identifier = first["conversation_id"]
+        client.headers.update(token_headers(identifier))
         assert first["sources"] == [{"document": "Licencias", "page": 2}]
         second = client.post(
             "/query",
@@ -194,6 +212,7 @@ def test_http_continuation_persists_and_recovers_separate_conversations(
         assert len(client.get(f"/conversations/{identifier}?limit=2").json()) == 2
         other = client.post("/query", json={"question": "Otro tema"}).json()
         assert other["conversation_id"] != identifier
+        client.headers.update(token_headers(other["conversation_id"]))
         assert len(client.get(f"/conversations/{other['conversation_id']}").json()) == 2
     assert retriever.search_similar.await_count == 3
     assert repository.save_exchange.await_count == 3
@@ -207,6 +226,7 @@ def test_http_abstention_is_persisted_without_llm(monkeypatch: MonkeyPatch) -> N
     with _client(monkeypatch, use_case) as client:
         response = client.post("/query", json={"question": "Requisitos"})
         data = response.json()
+        client.headers.update(token_headers(data["conversation_id"]))
         history = client.get(f"/conversations/{data['conversation_id']}").json()
     assert response.status_code == 200
     assert data["answer"] == ABSTENTION_MESSAGE
@@ -244,6 +264,7 @@ def test_unknown_conversation_is_404_before_rag(monkeypatch: MonkeyPatch) -> Non
     use_case, llm, embedder, _, repository = _rag()
     with _client(monkeypatch, use_case) as client:
         identifier = str(uuid4())
+        client.headers.update(token_headers(identifier))
         assert (
             client.post(
                 "/query", json={"question": "q", "conversation_id": identifier}
@@ -280,9 +301,11 @@ def test_storage_unavailability_returns_503_for_post_and_get(
     )
     repository.history.side_effect = ConversationUnavailableError("private detail")
     with _client(monkeypatch, use_case) as client:
+        identifier = str(uuid4())
+        client.headers.update(token_headers(identifier))
         for response in [
             client.post("/query", json={"question": "q"}),
-            client.get(f"/conversations/{uuid4()}"),
+            client.get(f"/conversations/{identifier}"),
         ]:
             assert response.status_code == 503
             assert "private detail" not in response.text

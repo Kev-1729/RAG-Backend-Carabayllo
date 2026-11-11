@@ -25,12 +25,15 @@ class SqlAlchemyRatingRepository:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
 
-    async def message_role(self, message_id: UUID) -> str | None:
+    async def message_role(
+        self, message_id: UUID, *, conversation_id: UUID | None = None
+    ) -> str | None:
+        statement = select(MessageModel.role).where(MessageModel.id == message_id)
+        if conversation_id is not None:
+            statement = statement.where(MessageModel.conversation_id == conversation_id)
         try:
             async with self._session_factory() as session:
-                role: object = await session.scalar(
-                    select(MessageModel.role).where(MessageModel.id == message_id)
-                )
+                role: object = await session.scalar(statement)
                 if role is not None and not isinstance(role, str):
                     raise TypeError("Expected a string message role or None")
                 return role

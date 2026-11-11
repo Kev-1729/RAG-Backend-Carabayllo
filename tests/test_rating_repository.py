@@ -46,6 +46,15 @@ async def test_message_lookup_is_scoped(role: str | None) -> None:
     assert UUID(int=1) in statement.params.values()
 
 
+async def test_message_lookup_checks_authorized_conversation() -> None:
+    repo, session = repository()
+    session.scalar.return_value = None
+    assert await repo.message_role(UUID(int=1), conversation_id=UUID(int=2)) is None
+    statement = session.scalar.await_args.args[0].compile(dialect=postgresql.dialect())
+    assert "messages.conversation_id =" in str(statement)
+    assert UUID(int=2) in statement.params.values()
+
+
 @pytest.mark.parametrize("saving", [False, True])
 async def test_connection_error_is_translated(saving: bool) -> None:
     repo, session = repository()

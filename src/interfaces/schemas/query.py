@@ -26,6 +26,7 @@ class QueryResponse(BaseModel):
     sources: list[SourceResponse]
     conversation_id: UUID
     message_id: UUID
+    conversation_token: str
 
 
 class MessageResponse(BaseModel):

@@ -20,6 +20,19 @@ async def test_rates_assistant_message(stars: int) -> None:
     repository.save.assert_awaited_once_with(UUID(int=1), stars)
 
 
+async def test_rating_uses_conversation_scope_and_rejects_foreign_message() -> None:
+    repository = AsyncMock(spec=RatingRepository)
+    repository.message_role.return_value = None
+    with pytest.raises(MessageNotFoundError):
+        await SubmitRating(repository).execute(
+            UUID(int=1), 4, conversation_id=UUID(int=2)
+        )
+    repository.message_role.assert_awaited_once_with(
+        UUID(int=1), conversation_id=UUID(int=2)
+    )
+    repository.save.assert_not_awaited()
+
+
 @pytest.mark.parametrize("stars", [0, 6, True])
 async def test_invalid_stars_do_not_touch_storage(stars: int) -> None:
     repository = AsyncMock(spec=RatingRepository)

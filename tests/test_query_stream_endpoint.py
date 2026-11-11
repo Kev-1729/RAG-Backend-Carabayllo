@@ -7,14 +7,17 @@ import pytest
 from fastapi import FastAPI
 from starlette.types import Message, Scope
 
+from src.container.security import get_conversation_tokens
 from src.domain.entities import Generation
 from src.domain.exceptions import (
     ConversationUnavailableError,
     EmbeddingUnavailableError,
     LLMUnavailableError,
 )
+from src.infrastructure.conversation_tokens import HmacConversationTokens
+from src.interfaces.dependencies.security import enforce_request_limit
 from src.interfaces.routers.query import router
-from tests.test_query_endpoint import _client, _rag
+from tests.test_query_endpoint import TEST_ACCESS_SECRET, _client, _rag, token_headers
 
 
 def parse_events(body: str) -> list[tuple[str, dict[str, object]]]:
@@ -55,7 +58,10 @@ def test_stream_returns_text_then_saved_answer(monkeypatch: pytest.MonkeyPatch) 
         assert name == "complete"
         assert final["answer"] == first + second
         assert final["sources"] == [{"document": "Licencias", "page": 2}]
-        history = client.get(f"/conversations/{final['conversation_id']}")
+        history = client.get(
+            f"/conversations/{final['conversation_id']}",
+            headers=token_headers(str(final["conversation_id"])),
+        )
         assert history.status_code == 200
         messages = history.json()
         assert messages[0]["content"] == "Requisitos"
@@ -148,6 +154,10 @@ async def test_disconnection_releases_provider_without_saving(mode: str) -> None
 
     llm.stream.side_effect = stream
     app = FastAPI()
+    app.dependency_overrides[enforce_request_limit] = lambda: None
+    app.dependency_overrides[get_conversation_tokens] = lambda: HmacConversationTokens(
+        TEST_ACCESS_SECRET
+    )
     app.include_router(router)
     app.state.conversation_query = use_case
     scope: Scope = {
