@@ -1,3 +1,5 @@
+from collections.abc import AsyncGenerator
+
 import pytest
 
 from src.application.ingest.semantic_chunker import SemanticChunker
@@ -16,6 +18,11 @@ class FakeLLM:
         if isinstance(response, BaseException):
             raise response
         return Generation(response)
+
+    def stream(
+        self, system: str, prompt: str
+    ) -> AsyncGenerator[str | Generation, None]:
+        raise AssertionError("La división semántica no usa streaming")
 
 
 def pages(*groups: tuple[str, ...]) -> tuple[Page, ...]:

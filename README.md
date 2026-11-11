@@ -233,6 +233,54 @@ Sin fragmentos relevantes, se devuelve una respuesta fija en español con `sourc
 
 El [lifespan de FastAPI](https://fastapi.tiangolo.com/advanced/events/) obtiene el caso de uso desde `container`, crea el engine y los adaptadores una vez por instancia de aplicación y cierra el engine y el cliente LLM al apagarla. Cada búsqueda usa su propia sesión de base de datos.
 
+### Respuestas en streaming
+
+`POST /query/stream` acepta el mismo JSON que `POST /query`, con `question`
+y un `conversation_id` opcional. Devuelve eventos SSE con datos en JSON.
+
+```bash
+curl -N http://localhost:8000/query/stream \
+  -H 'Content-Type: application/json' \
+  --data '{"question":"¿Cómo solicito una licencia de funcionamiento?"}'
+```
+
+| Evento | Datos |
+| --- | --- |
+| `delta` | `text` contiene el fragmento provisional. |
+| `complete` | `answer`, `sources`, `conversation_id` y `message_id` del turno guardado. |
+| `error` | `code` y `detail` describen un fallo después de iniciar la respuesta. |
+
+Una petición inválida, una conversación inexistente o un fallo de proveedor
+antes del primer evento devuelven HTTP 422, 404 o 503, respectivamente. Una
+vez iniciada la respuesta SSE, un fallo termina el stream con `error`. Usa
+`complete.answer` como texto definitivo y los IDs de ese evento para continuar
+la conversación o calificar la respuesta.
+
+### Streaming en aplicación
+
+`LLM.stream(system, prompt)` entrega fragmentos `str` y una única `Generation`
+final con el texto completo, modelo y tokens reportados por el proveedor.
+`AnswerQuery.stream(query, history=...)` entrega texto provisional y termina con
+un `Answer` que aplica las mismas reglas de contexto, fuentes, referencias y
+abstención que `execute`. Sin contexto relevante, devuelve la abstención sin
+invocar al LLM. Las fuentes definitivas se conocen al finalizar: el modelo puede
+abstenerse después de recibir contexto.
+
+Un stream truncado, un límite de salida o un error no producen resultado final.
+Al consumir parcialmente estos generadores se debe usar `contextlib.aclosing`
+o llamar a `aclose()` para liberar la conexión del proveedor. Los fragmentos
+anteriores a un error son provisionales. Los tokens se obtienen del resultado
+final, no se estiman contando fragmentos.
+
+`ConversationQuery.stream(query)` carga el historial y entrega texto provisional.
+Tras completar la generación, guarda el turno con sus referencias y métricas
+en la transacción habitual. El `Answer` final se emite después del guardado e
+incluye los identificadores de conversación y mensaje. Un error o una
+cancelación durante la generación descartan el turno parcial.
+
+Por HTTP, `POST /query` espera a que termine el turno y devuelve una única
+respuesta JSON.
+
 ### Conversaciones y memoria
 
 `POST /query` acepta `conversation_id` opcional. Sin él, guarda una conversación
