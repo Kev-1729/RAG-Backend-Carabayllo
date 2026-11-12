@@ -55,7 +55,7 @@ Los resultados están publicados en el artículo citado en [Investigación](#inv
 
 | Componente | Tecnología |
 | --- | --- |
-| Lenguaje | Python 3.10+ |
+| Lenguaje | Python 3.14 en Docker y CI; sintaxis y tipado con objetivo 3.10 |
 | Framework HTTP | FastAPI |
 | LLM | claude-sonnet-5-5 |
 | Embeddings | Voyage AI (`voyage-4`, 1024 dimensiones) |
@@ -112,6 +112,7 @@ rag/
 │   ├── requirements.txt   # producción
 │   └── tests.txt          # desarrollo: lint, tipos, tests
 ├── .env.example
+├── .dockerignore
 ├── .pre-commit-config.yaml
 ├── alembic.ini
 ├── docker-compose.yml
@@ -123,7 +124,8 @@ rag/
 
 ## Requisitos
 
-- Python 3.10+
+- Python 3.14 para usar la misma versión que Docker y CI. Ruff y mypy mantienen
+  el objetivo 3.10 para la compatibilidad del código; no es la versión del contenedor.
 - API key de Anthropic creada **dentro de un workspace** ([platform.claude.com](https://platform.claude.com))
 - Proyecto de [Supabase](https://supabase.com) (PostgreSQL con pgvector)
 - Docker y Docker Compose (opcional)
@@ -211,6 +213,57 @@ uvicorn src.main:app --reload --port 8000
 ```
 
 Documentación interactiva: http://localhost:8000/docs
+
+### Docker y Compose
+
+Esta configuración cubre la operación local. El despliegue y CD siguen pendientes.
+
+Requiere Docker con el motor de contenedores Linux en ejecución y Docker Compose
+v2. La imagen usa Python 3.14, como CI, instala solo las dependencias de producción
+y ejecuta Uvicorn con un usuario sin privilegios. El contexto de construcción
+incluye únicamente código, dependencias de producción y migraciones; `.env` queda
+fuera de la imagen.
+
+Copia `.env.example` a `.env` y completa las variables, incluido
+`API_ACCESS_SECRET`. Compose inyecta ese archivo al ejecutar el contenedor. Usa
+comillas simples en valores con `$` que deban mantenerse literales. Se conserva
+la conexión SSL a Supabase indicada en `DATABASE_URL`.
+
+```bash
+docker compose build
+docker compose run --rm --no-deps api python -m alembic upgrade head
+docker compose up -d --wait
+docker compose ps
+docker compose logs --tail=100 api
+```
+
+El comando de Alembic modifica la base configurada: comprueba el destino antes
+de ejecutarlo. Se ejecuta una vez por actualización del esquema, antes de arrancar
+la API; el arranque del contenedor no aplica migraciones. Compose utiliza Supabase
+y no crea una base local. La imagen incluye Alembic y las migraciones para poder
+usar el mismo artefacto en ambos comandos.
+
+La API queda disponible en http://localhost:8000 y se publica únicamente en la
+interfaz local del equipo. `GET /health` devuelve `{"status":"ok"}` sin token ni
+consumo del límite de solicitudes. El healthcheck de Docker consulta esa ruta:
+comprueba que el proceso HTTP responde, sin consultar PostgreSQL, Voyage o Claude.
+Un contenedor saludable no certifica credenciales válidas, migraciones aplicadas
+ni disponibilidad de esos servicios.
+
+`/docs` y `/openapi.json` también están disponibles sin token en este entorno
+local. Su exposición debe definirse en la configuración de despliegue.
+
+No se monta el código del equipo ni se activa recarga automática. Para incorporar
+cambios, ejecuta `docker compose up -d --build --wait`. Para detener y retirar el
+contenedor y la red local, usa `docker compose down`; los datos permanecen en
+Supabase. Docker marca los fallos de salud, pero la política de reinicio solo
+reinicia el contenedor cuando su proceso termina.
+
+Uvicorn ignora las cabeceras de proxy en esta configuración local. El despliegue
+deberá configurar HTTPS y los proxies de confianza antes de exponer el servicio
+para que el limitador identifique correctamente la IP del cliente.
+
+### Ejemplo de consulta
 
 ```bash
 curl -X POST http://localhost:8000/query \

@@ -19,7 +19,7 @@ from src.domain.exceptions import (
     RetrievalUnavailableError,
 )
 from src.interfaces.request_limits import RequestBodyLimit
-from src.interfaces.routers import conversations, query, ratings
+from src.interfaces.routers import conversations, health, query, ratings
 
 
 @asynccontextmanager
@@ -59,6 +59,7 @@ def create_application() -> FastAPI:
         allow_headers=["*"],
     )
 
+    application.include_router(health.router)
     application.include_router(query.router)
     application.include_router(conversations.router)
     application.include_router(ratings.router)

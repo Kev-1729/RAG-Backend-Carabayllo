@@ -144,6 +144,23 @@ def _rag() -> tuple[ConversationQuery, AsyncMock, AsyncMock, AsyncMock, AsyncMoc
     )
 
 
+def test_health_responds_without_token_or_external_calls(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    use_case, llm, embedder, retriever, repository = _rag()
+    with _client(monkeypatch, use_case) as client:
+        del client.headers["X-Conversation-Token"]
+        response = client.get("/health")
+        client.app.state.request_limiter.allow.assert_not_awaited()
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    llm.generate.assert_not_awaited()
+    embedder.embed_query.assert_not_awaited()
+    retriever.search_similar.assert_not_awaited()
+    repository.history.assert_not_awaited()
+    repository.save_exchange.assert_not_awaited()
+
+
 @pytest.mark.parametrize("question", ["", "   ", "\t\n\r", "\u00a0"])
 def test_blank_question_never_calls_providers_or_storage(
     monkeypatch: MonkeyPatch, question: str
