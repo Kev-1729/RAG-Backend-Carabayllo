@@ -6,6 +6,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    api_access_secret: SecretStr = Field(min_length=32)
+    api_requests_per_minute: int = Field(default=60, ge=1)
+    api_queries_per_minute: int = Field(default=10, ge=1)
+    api_max_body_bytes: int = Field(default=16384, ge=1024)
+    api_body_timeout_seconds: float = Field(default=10, gt=0)
     cors_allow_origins: str = ""
     anthropic_api_key: SecretStr
     llm_model: str

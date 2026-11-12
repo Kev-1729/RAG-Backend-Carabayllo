@@ -1,0 +1,13 @@
+**
+!requirements/
+requirements/**
+!requirements/requirements.txt
+!src/
+!src/**
+!migrations/
+!migrations/**
+!alembic.ini
+**/__pycache__/
+**/*.pyc
+**/.env
+**/.env.*

@@ -33,6 +33,14 @@ class Base(DeclarativeBase):
     )
 
 
+class RequestLimitModel(Base):
+    __tablename__ = "request_limits"
+    __table_args__ = (Index("ix_request_limits_window_start", "window_start"),)
+    key: Mapped[str] = mapped_column(CHAR(64), primary_key=True)
+    window_start: Mapped[int]
+    count: Mapped[int]
+
+
 class DocumentModel(Base):
     __tablename__ = "documents"
     __table_args__ = (

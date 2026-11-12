@@ -2,6 +2,14 @@ class LLMUnavailableError(Exception):
     """El proveedor no responde (caído, rate limit, red)."""
 
 
+class InvalidConversationTokenError(Exception):
+    """El token de acceso a la conversación es inválido."""
+
+
+class RequestLimitUnavailableError(Exception):
+    """El almacenamiento de límites de solicitudes no está disponible."""
+
+
 class ConversationNotFoundError(Exception):
     """La conversación solicitada no existe."""
 

@@ -18,6 +18,7 @@ Este proyecto es una **reescritura desde cero** de un sistema RAG que ya fue val
 - [Variables de entorno](#variables-de-entorno)
 - [Base de datos](#base-de-datos)
 - [Ejecución](#ejecución)
+- [Operación y despliegue](docs/operations.md)
 - [Tests](#tests)
 - [Calidad de código](#calidad-de-código)
 - [Convenciones](#convenciones)
@@ -55,7 +56,7 @@ Los resultados están publicados en el artículo citado en [Investigación](#inv
 
 | Componente | Tecnología |
 | --- | --- |
-| Lenguaje | Python 3.10+ |
+| Lenguaje | Python 3.14 en Docker y CI; sintaxis y tipado con objetivo 3.10 |
 | Framework HTTP | FastAPI |
 | LLM | claude-sonnet-5-5 |
 | Embeddings | Voyage AI (`voyage-4`, 1024 dimensiones) |
@@ -112,6 +113,7 @@ rag/
 │   ├── requirements.txt   # producción
 │   └── tests.txt          # desarrollo: lint, tipos, tests
 ├── .env.example
+├── .dockerignore
 ├── .pre-commit-config.yaml
 ├── alembic.ini
 ├── docker-compose.yml
@@ -123,7 +125,8 @@ rag/
 
 ## Requisitos
 
-- Python 3.10+
+- Python 3.14 para usar la misma versión que Docker y CI. Ruff y mypy mantienen
+  el objetivo 3.10 para la compatibilidad del código; no es la versión del contenedor.
 - API key de Anthropic creada **dentro de un workspace** ([platform.claude.com](https://platform.claude.com))
 - Proyecto de [Supabase](https://supabase.com) (PostgreSQL con pgvector)
 - Docker y Docker Compose (opcional)
@@ -159,6 +162,11 @@ Copia `.env.example` a `.env` y completa los valores. **Nunca subas `.env` al re
 | Variable | Requerida | Descripción |
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | Sí | API key de Anthropic (scoped a un workspace) |
+| `API_ACCESS_SECRET` | Sí | Secreto aleatorio de al menos 32 caracteres para firmar los tokens de conversación |
+| `API_REQUESTS_PER_MINUTE` | No | Solicitudes por IP y minuto. Por defecto 60 |
+| `API_QUERIES_PER_MINUTE` | No | Consultas JSON y SSE combinadas por IP y minuto. Por defecto 10 |
+| `API_MAX_BODY_BYTES` | No | Tamaño máximo del cuerpo POST. Por defecto 16384 bytes |
+| `API_BODY_TIMEOUT_SECONDS` | No | Tiempo para recibir el cuerpo POST. Por defecto 10 segundos |
 | `LLM_MODEL` | Sí | Modelo a usar, p. ej. `claude-sonnet-5-5` |
 | `DATABASE_URL` | Sí | Conexión a PostgreSQL. En Supabase: **Connect → Direct → Session pooler**, cambiando `postgresql://` por `postgresql+asyncpg://` y agregando `?ssl=require` |
 | `CORS_ALLOW_ORIGINS` | No | Orígenes permitidos separados por coma |
@@ -178,6 +186,7 @@ Copia `.env.example` a `.env` y completa los valores. **Nunca subas `.env` al re
 | `conversations` | Una fila por conversación. Agrupa los mensajes para la memoria conversacional. |
 | `messages` | Una fila por pregunta (`user`) o respuesta (`assistant`), en orden por `created_at`. Las nuevas respuestas guardan latencia y, cuando interviene el LLM, modelo y tokens reportados por el proveedor. |
 | `ratings` | Calificación de 1 a 5 estrellas de una respuesta. Opcional y una sola por respuesta. |
+| `request_limits` | Contadores compartidos entre procesos para limitar solicitudes por cliente y minuto |
 | `message_references` | Chunks del contexto de respuestas sin abstención, con su puesto (`rank`) y similitud coseno (`score`). No certifican citas utilizadas por el modelo. |
 
 El detalle de columnas está en [`src/infrastructure/db/models.py`](src/infrastructure/db/models.py) y en [`migrations/versions/`](migrations/versions/). Todas las tablas tienen **RLS activado** para que la Data API de Supabase no pueda acceder a ellas; el backend se conecta directo a PostgreSQL.
@@ -206,6 +215,57 @@ uvicorn src.main:app --reload --port 8000
 
 Documentación interactiva: http://localhost:8000/docs
 
+### Docker y Compose
+
+Esta configuración cubre la operación local. El despliegue y CD siguen pendientes.
+
+Requiere Docker con el motor de contenedores Linux en ejecución y Docker Compose
+v2. La imagen usa Python 3.14, como CI, instala solo las dependencias de producción
+y ejecuta Uvicorn con un usuario sin privilegios. El contexto de construcción
+incluye únicamente código, dependencias de producción y migraciones; `.env` queda
+fuera de la imagen.
+
+Copia `.env.example` a `.env` y completa las variables, incluido
+`API_ACCESS_SECRET`. Compose inyecta ese archivo al ejecutar el contenedor. Usa
+comillas simples en valores con `$` que deban mantenerse literales. Se conserva
+la conexión SSL a Supabase indicada en `DATABASE_URL`.
+
+```bash
+docker compose build
+docker compose run --rm --no-deps api python -m alembic upgrade head
+docker compose up -d --wait
+docker compose ps
+docker compose logs --tail=100 api
+```
+
+El comando de Alembic modifica la base configurada: comprueba el destino antes
+de ejecutarlo. Se ejecuta una vez por actualización del esquema, antes de arrancar
+la API; el arranque del contenedor no aplica migraciones. Compose utiliza Supabase
+y no crea una base local. La imagen incluye Alembic y las migraciones para poder
+usar el mismo artefacto en ambos comandos.
+
+La API queda disponible en http://localhost:8000 y se publica únicamente en la
+interfaz local del equipo. `GET /health` devuelve `{"status":"ok"}` sin token ni
+consumo del límite de solicitudes. El healthcheck de Docker consulta esa ruta:
+comprueba que el proceso HTTP responde, sin consultar PostgreSQL, Voyage o Claude.
+Un contenedor saludable no certifica credenciales válidas, migraciones aplicadas
+ni disponibilidad de esos servicios.
+
+`/docs` y `/openapi.json` también están disponibles sin token en este entorno
+local. Su exposición debe definirse en la configuración de despliegue.
+
+No se monta el código del equipo ni se activa recarga automática. Para incorporar
+cambios, ejecuta `docker compose up -d --build --wait`. Para detener y retirar el
+contenedor y la red local, usa `docker compose down`; los datos permanecen en
+Supabase. Docker marca los fallos de salud, pero la política de reinicio solo
+reinicia el contenedor cuando su proceso termina.
+
+Uvicorn ignora las cabeceras de proxy en esta configuración local. El despliegue
+deberá configurar HTTPS y los proxies de confianza antes de exponer el servicio
+para que el limitador identifique correctamente la IP del cliente.
+
+### Ejemplo de consulta
+
 ```bash
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
@@ -223,7 +283,8 @@ Toda respuesta exitosa incluye `answer`, `sources`, `conversation_id` y `message
   "answer": "Presenta el formulario indicado [1].",
   "sources": [{"document": "Licencias", "page": 2}],
   "conversation_id": "e35e2d73-9f02-4a35-9cba-7febdc995238",
-  "message_id": "7a1c6d84-3741-4f8b-9b27-c7a4d0e03a25"
+  "message_id": "7a1c6d84-3741-4f8b-9b27-c7a4d0e03a25",
+  "conversation_token": "UUID.firma"
 }
 ```
 
@@ -232,6 +293,39 @@ Las fuentes describen el contexto enviado al modelo y se deduplican por identifi
 Sin fragmentos relevantes, se devuelve una respuesta fija en español con `sources: []`, sin llamar a Claude. Si el modelo considera insuficiente el contexto, se le indica devolver la misma abstención. Las preguntas vacías devuelven 422; la indisponibilidad de Voyage, de la búsqueda o de Claude devuelve 503 sin detalles internos.
 
 El [lifespan de FastAPI](https://fastapi.tiangolo.com/advanced/events/) obtiene el caso de uso desde `container`, crea el engine y los adaptadores una vez por instancia de aplicación y cierra el engine y el cliente LLM al apagarla. Cada búsqueda usa su propia sesión de base de datos.
+
+### Acceso a conversaciones sin login
+
+Al crear una conversación, el cliente recibe `conversation_token` en la respuesta
+JSON o en el evento SSE `complete`. Debe conservarlo junto al UUID y enviarlo en
+`X-Conversation-Token` para continuar la conversación, consultar su historial o
+calificar una respuesta. Un token ausente, inválido o de otra conversación
+devuelve HTTP 403 antes de consultar su contenido.
+
+Las calificaciones verifican que el mensaje pertenezca a la conversación del
+token. Quien tenga el token puede acceder a esa conversación. Mantén HTTPS y
+evita incluir tokens en URLs, logs o repositorios. El token dura hasta que se
+rote `API_ACCESS_SECRET`; esa rotación invalida todos los tokens anteriores.
+Las conversaciones previas a este cambio se conservan en la base de datos,
+pero su recuperación requiere intervención del administrador para entregar un
+token al destinatario correcto.
+
+Genera el secreto y guárdalo en el entorno del servidor antes de arrancar la API.
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+alembic upgrade head
+```
+
+La migración 0003 crea `request_limits` con RLS. Los límites usan una operación
+atómica en PostgreSQL y ventanas fijas de un minuto. El cliente se identifica
+mediante HMAC de la IP recibida del servidor ASGI. Las cabeceras reenviadas se
+deben aceptar únicamente desde proxies de confianza configurados en el servidor.
+Los contadores caducados se eliminan durante las solicitudes siguientes.
+
+Al agotar un límite, la API devuelve HTTP 429 con `Retry-After: 60`. Si el
+almacenamiento del limitador falla, devuelve HTTP 503. Los cuerpos excesivos
+devuelven 413, y la recepción demasiado lenta devuelve 408.
 
 ### Respuestas en streaming
 
@@ -247,7 +341,7 @@ curl -N http://localhost:8000/query/stream \
 | Evento | Datos |
 | --- | --- |
 | `delta` | `text` contiene el fragmento provisional. |
-| `complete` | `answer`, `sources`, `conversation_id` y `message_id` del turno guardado. |
+| `complete` | `answer`, `sources`, `conversation_id`, `message_id` y `conversation_token` del turno guardado. |
 | `error` | `code` y `detail` describen un fallo después de iniciar la respuesta. |
 
 Una petición inválida, una conversación inexistente o un fallo de proveedor
@@ -292,7 +386,8 @@ de `answer` y `sources`.
 {"question": "¿Qué necesito para una licencia de bodega?"}
 ```
 
-Para continuar, usa el `conversation_id` devuelto:
+Para continuar, usa el `conversation_id` devuelto y envía su token en
+`X-Conversation-Token`:
 
 ```json
 {"question": "¿Y cuánto cuesta?", "conversation_id": "UUID recibido"}
@@ -325,9 +420,8 @@ utilizó el modelo ni reconstruye referencias para mensajes anteriores.
 
 El historial recuperado contiene texto, rol, fecha e identificador; las referencias
 se conservan en base de datos y no se agregan al contrato HTTP del historial. No hay listado
-público de conversaciones: el cliente debe conservar su UUID. El UUID no sustituye
-la protección de acceso; la aplicación sigue sin login y la política de retención
-y protección de conversaciones debe definirse antes del despliegue.
+público de conversaciones. El cliente debe conservar su UUID y token de acceso.
+La política de retención de conversaciones debe definirse antes del despliegue.
 
 ### Reemplazo de documentos
 
@@ -374,7 +468,7 @@ también se aplica a solicitudes simultáneas mediante la clave primaria existen
 
 Se reutiliza `ratings`, sin migraciones ni llamadas a Voyage o Claude. Calificar no
 modifica el consumo ni la latencia de la respuesta. La regla es una calificación por
-mensaje, no por persona; no se añade autenticación en este cambio.
+mensaje. La solicitud debe presentar el token de la conversación del mensaje.
 
 ### Consumo y latencia de respuestas
 
@@ -470,6 +564,13 @@ pre-commit run --all-files
 
 Estas mismas verificaciones, más `pytest`, corren en GitHub Actions en cada pull request.
 
+Tras esos checks, el job `container` construye la imagen y prepara PostgreSQL 17
+con pgvector en una base desechable. Aplica Alembic hasta `head` dos veces,
+comprueba la revisión y RLS, y arranca la imagen para verificar el healthcheck,
+el usuario sin privilegios y la ausencia de `.env` en `/app`. Usa valores ficticios
+para los proveedores y no publica imágenes ni despliega la API. La configuración
+y los pendientes de despliegue están en [Operación del backend](docs/operations.md).
+
 ---
 
 ## Convenciones
@@ -505,8 +606,8 @@ Estas mismas verificaciones, más `pytest`, corren en GitHub Actions en cada pul
 - [ ] Métricas de exactitud de las respuestas
 - [x] Registro de consumo de tokens y latencia para estimar costos (consumo real de Claude pendiente de validación)
 - [ ] Evaluación automática del pipeline
-- [ ] Streaming de respuestas
-- [ ] Autenticación
+- [x] Streaming de respuestas por SSE (pendiente de validación con servicios reales)
+- [x] Protección de API y acceso a conversaciones con tokens, sin login (pendiente de validación con PostgreSQL real)
 - [x] CI (GitHub Actions)
 - [ ] Despliegue (CD)
 
