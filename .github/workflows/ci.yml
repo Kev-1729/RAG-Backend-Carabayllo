@@ -5,6 +5,9 @@ on:
     branches: [main, stage]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -31,3 +34,89 @@ jobs:
 
       - name: Tests
         run: pytest
+
+  container:
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: rag_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rag_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ANTHROPIC_API_KEY: ci-placeholder
+      VOYAGE_API_KEY: ci-placeholder
+      LLM_MODEL: ci-placeholder
+      API_ACCESS_SECRET: ci-only-conversation-secret-32-characters
+      DATABASE_URL: postgresql+asyncpg://postgres:ci-only-password@127.0.0.1:5432/rag_ci
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build application image
+        run: docker build --file dockerfile --tag rag-api:ci .
+
+      - name: Prepare disposable database
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          docker exec "$POSTGRES_CONTAINER" psql -U postgres -d rag_ci -v ON_ERROR_STOP=1 \
+            -c 'CREATE SCHEMA extensions' \
+            -c 'ALTER DATABASE rag_ci SET search_path TO public, extensions'
+
+      - name: Apply migrations and repeat upgrade
+        run: |
+          for attempt in 1 2; do
+            docker run --rm --network host \
+              --env ANTHROPIC_API_KEY --env VOYAGE_API_KEY --env LLM_MODEL \
+              --env API_ACCESS_SECRET --env DATABASE_URL \
+              rag-api:ci python -m alembic upgrade head
+          done
+
+      # Review the expected revision and RLS table count with every new migration.
+      - name: Verify migration revision and RLS
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          revision=$(docker exec "$POSTGRES_CONTAINER" psql -U postgres -d rag_ci -Atc \
+            'SELECT version_num FROM alembic_version')
+          test "$revision" = 0003
+          protected_tables=$(docker exec "$POSTGRES_CONTAINER" psql -U postgres -d rag_ci -Atc \
+            "SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND rowsecurity")
+          test "$protected_tables" = 8
+
+      - name: Start API and verify container health
+        run: |
+          docker run --detach --name rag-api-ci --network host \
+            --env ANTHROPIC_API_KEY --env VOYAGE_API_KEY --env LLM_MODEL \
+            --env API_ACCESS_SECRET --env DATABASE_URL rag-api:ci
+          for attempt in $(seq 1 30); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' rag-api-ci)
+            if [ "$status" = healthy ]; then
+              docker exec rag-api-ci python -c \
+                'import json, os, urllib.request; assert os.getuid() == 10001; assert not os.path.exists("/app/.env"); assert json.load(urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=3)) == {"status": "ok"}'
+              exit 0
+            fi
+            if [ "$status" = unhealthy ]; then
+              exit 1
+            fi
+            sleep 2
+          done
+          exit 1
+
+      - name: Container diagnostics
+        if: failure()
+        run: docker logs rag-api-ci || true
+
+      - name: Remove API container
+        if: always()
+        run: docker rm --force rag-api-ci || true

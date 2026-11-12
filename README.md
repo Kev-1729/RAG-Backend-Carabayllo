@@ -18,6 +18,7 @@ Este proyecto es una **reescritura desde cero** de un sistema RAG que ya fue val
 - [Variables de entorno](#variables-de-entorno)
 - [Base de datos](#base-de-datos)
 - [Ejecución](#ejecución)
+- [Operación y despliegue](docs/operations.md)
 - [Tests](#tests)
 - [Calidad de código](#calidad-de-código)
 - [Convenciones](#convenciones)
@@ -563,6 +564,13 @@ pre-commit run --all-files
 
 Estas mismas verificaciones, más `pytest`, corren en GitHub Actions en cada pull request.
 
+Tras esos checks, el job `container` construye la imagen y prepara PostgreSQL 17
+con pgvector en una base desechable. Aplica Alembic hasta `head` dos veces,
+comprueba la revisión y RLS, y arranca la imagen para verificar el healthcheck,
+el usuario sin privilegios y la ausencia de `.env` en `/app`. Usa valores ficticios
+para los proveedores y no publica imágenes ni despliega la API. La configuración
+y los pendientes de despliegue están en [Operación del backend](docs/operations.md).
+
 ---
 
 ## Convenciones
@@ -598,8 +606,8 @@ Estas mismas verificaciones, más `pytest`, corren en GitHub Actions en cada pul
 - [ ] Métricas de exactitud de las respuestas
 - [x] Registro de consumo de tokens y latencia para estimar costos (consumo real de Claude pendiente de validación)
 - [ ] Evaluación automática del pipeline
-- [ ] Streaming de respuestas
-- [ ] Autenticación
+- [x] Streaming de respuestas por SSE (pendiente de validación con servicios reales)
+- [x] Protección de API y acceso a conversaciones con tokens, sin login (pendiente de validación con PostgreSQL real)
 - [x] CI (GitHub Actions)
 - [ ] Despliegue (CD)
 
